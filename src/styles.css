@@ -1,0 +1,131 @@
+body {
+    margin: 0;
+    font-family: sans-serif;
+  }
+  
+  .app-container {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 40px 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  background-color: var(--bg);
+  transition: background-color 0.3s ease;
+
+  }
+  
+  .app-container.light {
+    background-color: #f9fafb;
+    color: #111827;
+  }
+  
+  .app-container.dark {
+    background-color: #111827;
+    color: #f3f4f6;
+  }
+  
+  .card {
+    width: 100%;
+    max-width: 500px;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    margin-bottom: 40px;
+  }
+  
+  
+  .card.light {
+    background-color: white;
+  }
+  
+  .card.dark {
+    background-color: #1f2937;
+  }
+  
+  .btn {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    color: white;
+  }
+  
+  .btn-primary {
+    background-color: #4f46e5;
+  }
+  
+  .btn-primary.dark {
+    background-color: #6366f1;
+  }
+  
+  .btn-toggle {
+    background-color: #e5e7eb;
+    color: #111827;
+  }
+  
+  .btn-toggle.dark {
+    background-color: #374151;
+    color: #f3f4f6;
+  }
+  
+  .radio-group {
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+  }
+  
+  .manual-url {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 15px;
+  }
+  
+  .status-msg {
+    margin-top: 20px;
+  }
+  
+  .wallet-info, .batch-list {
+    font-size: 14px;
+    margin-top: 20px;
+    text-align: left;
+  }
+  
+  .batch-list ul {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .upload-form {
+    margin-top: 30px;
+    text-align: left;
+    font-size: 14px;
+  }
+  
+  .select, .file-input {
+    width: 100%;
+    padding: 6px;
+    margin-bottom: 10px;
+  }
+  
+  .checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .file-details {
+    margin-top: 10px;
+    font-size: 13px;
+    background: rgba(0,0,0,0.03);
+    padding: 10px;
+    border-radius: 6px;
+  }
+    
