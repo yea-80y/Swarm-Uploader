@@ -128,4 +128,40 @@ body {
     padding: 10px;
     border-radius: 6px;
   }
+  .batch-list ul {
+    list-style: none;
+    padding: 0;
+  }
+  
+  .batch-card {
+    background-color: #f3f4f6;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border: 2px solid transparent;
+    cursor: pointer;
+  }
+  
+  .batch-card:hover {
+    border-color: #6366f1;
+  }
+  
+  .batch-card.selected {
+    border-color: #4f46e5;
+    background-color: #e0e7ff;
+  }
+  .btn-secondary {
+    background-color: #e5e7eb;
+    color: #111827;
+    border: 1px solid #ccc;
+    padding: 10px 16px;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  
+  .btn-secondary:hover {
+    background-color: #d1d5db;
+  }
     
