@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { Bee } from "@ethersphere/bee-js";
 
 // Mapping from batch depth to effective capacity in MB (for Medium erasure coding)
 const EFFECTIVE_VOLUME_MEDIUM_MB = {
@@ -16,48 +17,80 @@ export default function UploadScreen() {
   const navigate = useNavigate();
   const { state } = useLocation();
 
-  // Destructure passed state
   const beeApiUrl = state?.beeApiUrl;
   const wallet = state?.wallet;
   const batches = state?.batches;
 
+  const [uploadMode, setUploadMode] = useState("file");
   const [file, setFile] = useState(null);
   const [selectedBatch, setSelectedBatch] = useState("");
   const [isImmutable, setIsImmutable] = useState(true);
   const [uploadStatus, setUploadStatus] = useState("");
+  const [feedName, setFeedName] = useState("");
 
-  // Block access if user arrived without connection
-  if (!beeApiUrl || !wallet || !batches) {
-    return (
-      <div className="app-container">
-        <div className="card">
-          <h2>❌ Not connected</h2>
-          <p>Please connect to your Bee node first.</p>
-          <button className="btn btn-primary" onClick={() => navigate("/")}>
-            ← Return to Connection
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const bee = new Bee(beeApiUrl);
 
-  // Upload handler
+  const saveAsJson = (data) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "swarm_upload_info.json";
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  };
+
   const handleUpload = async () => {
+    if (!file || !selectedBatch) return;
+
+    setUploadStatus("Uploading...");
+
     try {
-      setUploadStatus("Uploading...");
+      const batch = batches.find(b => b.batchID === selectedBatch);
+      if (!batch) throw new Error("Selected batch not found.");
 
-      const res = await fetch(`${beeApiUrl}/bzz?name=${file.name}&immutable=${isImmutable}`, {
-        method: "POST",
-        body: file,
-        headers: {
-          "Content-Type": file.type || "application/octet-stream",
-          "Swarm-Postage-Batch-Id": selectedBatch
+      const isBatchMutable = batch.immutable === false;
+
+      if (isImmutable !== !isBatchMutable) {
+        setUploadStatus("❌ Upload failed: File type does not match batch type.");
+        return;
+      }
+
+      let reference = "";
+
+      if (uploadMode === "file") {
+        // Always use direct upload for single files
+        const result = await bee.uploadFile(selectedBatch, file);
+        reference = result.reference;
+      } else {
+        // Only use feed for folders (websites) if mutable
+        if (isImmutable) {
+          const result = await bee.uploadFiles(selectedBatch, file);
+          reference = result.reference;
+        } else {
+          const topic = feedName || "website";
+          const result = await bee.uploadFiles(selectedBatch, file);
+          reference = result.reference;
         }
-      });
+      }
 
-      if (!res.ok) throw new Error(await res.text());
-      const ref = await res.text();
-      setUploadStatus(`✅ Uploaded! Swarm Hash: ${ref}`);
+      setUploadStatus(`✅ Uploaded! Swarm Hash: ${reference}`);
+
+      if (window.confirm("Save upload info locally?")) {
+        saveAsJson({
+          type: isImmutable ? "immutable" : "mutable",
+          fileName: file.name,
+          reference,
+          feedName: !isImmutable && uploadMode === "folder" ? (feedName || "website") : undefined,
+          batchId: selectedBatch,
+          uploadMode,
+          ethereumAddress: wallet.ethereumAddress,
+          date: new Date().toISOString()
+        });
+      }
+
     } catch (err) {
       setUploadStatus("❌ Upload failed: " + err.message);
     }
@@ -68,61 +101,6 @@ export default function UploadScreen() {
       <div className="card">
         <h1>Upload to Swarm</h1>
 
-        <button className="btn-secondary" onClick={() => navigate("/")}>
-          ← Back to Connection
-        </button>
-
-        {/* File input */}
-        <label>File:</label>
-        <input
-          type="file"
-          onChange={(e) => setFile(e.target.files[0])}
-          className="file-input"
-        />
-
-        {/* Batch selection */}
-        <div className="batch-list">
-          <p><strong>Select a Batch:</strong></p>
-          <ul>
-            {batches.map((batch) => {
-              const name = batch.label || "(no label)";
-              const depth = batch.depth;
-              const ttlDays = Math.round((batch.batchTTL || 0) / 86400);
-
-              const usedChunks = batch.utilization || 0;
-              const effectiveMB = EFFECTIVE_VOLUME_MEDIUM_MB[depth] || 0;
-              const usedMB = (usedChunks * 4096) / (1024 * 1024);
-              const remainingMB = effectiveMB - usedMB;
-
-              const isSelected = batch.batchID === selectedBatch;
-
-              return (
-                <li
-                  key={batch.batchID}
-                  className={`batch-card ${isSelected ? "selected" : ""}`}
-                  onClick={() => setSelectedBatch(batch.batchID)}
-                >
-                  <strong>{name}</strong><br />
-                  ID: <code>{batch.batchID.slice(0, 12)}...</code><br />
-                  Depth: {depth} → Capacity: {effectiveMB.toFixed(2)} MB<br />
-                  Used: {usedMB.toFixed(2)} MB<br />
-                  Remaining: {remainingMB.toFixed(2)} MB<br />
-                  TTL: {ttlDays} days
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-
-        {/* File preview */}
-        {file && (
-          <div className="file-details">
-            <p><strong>Selected:</strong> {file.name}</p>
-            <p><strong>Size:</strong> {(file.size / (1024 * 1024)).toFixed(2)} MB</p>
-          </div>
-        )}
-
-        {/* Immutable toggle */}
         <label>Immutable:</label>
         <input
           type="checkbox"
@@ -130,17 +108,7 @@ export default function UploadScreen() {
           onChange={() => setIsImmutable(!isImmutable)}
         />
 
-        {/* Upload button */}
-        <button
-          className="btn btn-primary"
-          style={{ marginTop: "20px", fontSize: "18px", padding: "12px 20px" }}
-          onClick={handleUpload}
-          disabled={!file || !selectedBatch}
-        >
-          Upload to Swarm
-        </button>
-
-        {/* Status display */}
+        <button onClick={handleUpload}>Upload to Swarm</button>
         {uploadStatus && <p>{uploadStatus}</p>}
       </div>
     </div>
