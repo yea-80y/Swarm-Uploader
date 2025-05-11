@@ -1,16 +1,22 @@
-// UploadScreen.jsx (Fully Corrected - Hex String for Feed Topic in Bee Writer)
+// UploadScreen.jsx (Fully Corrected - Strict Hex String for Bee-JS v9.2.1)
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Bee } from "@ethersphere/bee-js";
 import { keccak256 } from "js-sha3";
-import { getAddress } from "ethers";
 import "./styles.css";
 
-// Helper: Convert Uint8Array to hex string with 0x prefix
-function uint8ArrayToHex(uint8arr) {
-  return '0x' + Array.from(uint8arr)
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+// Helper: Generate a 64-character Hex String for Feed Topic
+function generateTopicHex(feedName) {
+  const hashHex = keccak256(feedName || "website");
+  const topicHex = "0x" + hashHex.padStart(64, '0');
+
+  console.log("Generated Topic Hex for Feed (64-char 0x Hex):", topicHex);
+
+  if (typeof topicHex !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(topicHex)) {
+    throw new Error("Invalid topic hex string format.");
+  }
+
+  return topicHex;
 }
 
 export default function UploadScreen() {
@@ -30,17 +36,27 @@ export default function UploadScreen() {
 
   const bee = new Bee(beeApiUrl);
 
-  // Handle File or Folder Selection
+  // Handle File Selection
   const handleFileChange = (e) => {
     const files = e.target.files;
-    if (uploadMode === "folder") {
-      setFile(files);
-    } else {
-      setFile(files[0]);
-    }
+    setFile(uploadMode === "folder" ? files : files[0]);
   };
 
-  // Handle File Upload
+  // Create Ethereum Signer using window.ethereum (Metamask)
+  const createSigner = () => {
+    return {
+      address: wallet.ethereumAddress,
+      async sign(data) {
+        const hexData = '0x' + Array.from(data).map(b => b.toString(16).padStart(2, '0')).join('');
+        const signature = await window.ethereum.request({
+          method: 'personal_sign',
+          params: [hexData, wallet.ethereumAddress],
+        });
+        return signature;
+      },
+    };
+  };
+
   const handleUpload = async () => {
     if (!file || !selectedBatch) {
       setUploadStatus("❌ Please select a batch and file.");
@@ -55,7 +71,6 @@ export default function UploadScreen() {
       if (!batch) throw new Error("Selected batch not found.");
 
       const isBatchMutable = !batch.immutableFlag;
-      console.log("Selected Batch Mutable:", isBatchMutable);
       if (isImmutable !== !isBatchMutable) {
         setUploadStatus("❌ Upload failed: File type does not match batch type.");
         return;
@@ -64,43 +79,25 @@ export default function UploadScreen() {
       let reference = "";
 
       if (uploadMode === "file") {
-        const result = await bee.uploadFile(selectedBatch, file, {
-          onUploadProgress: (progress) => {
-            setUploadProgress(Math.round((progress.loaded / progress.total) * 100));
-          }
-        });
+        const result = await bee.uploadFile(selectedBatch, file);
         reference = result.reference;
       } else {
-        const result = await bee.uploadFiles(selectedBatch, file, {
-          onUploadProgress: (progress) => {
-            setUploadProgress(Math.round((progress.loaded / progress.total) * 100));
-          }
-        });
+        const result = await bee.uploadFiles(selectedBatch, file);
         reference = result.reference;
 
-        // If batch is mutable, update feed with website hash
         if (isBatchMutable) {
-          try {
-            const feedTopic = feedName || "website";
-            const hashHex = keccak256(feedTopic); // 64-character hex string (no 0x)
-            const topicHex = "0x" + hashHex;
+          const topicHex = generateTopicHex(feedName);
+          console.log("Using Topic Hex for Feed (64-char 0x Hex):", topicHex, "Type:", typeof topicHex);
 
-            console.log("Feed Topic (Hex):", topicHex);
-            console.log("Ethereum Address (Before Normalizing):", wallet.ethereumAddress);
+          const signer = createSigner();
+          console.log("Signer Created:", signer);
 
-            // Validate and normalize Ethereum address using ethers v6 getAddress()
-            const normalizedAddress = getAddress(wallet.ethereumAddress);
-            console.log("Ethereum Address (Normalized):", normalizedAddress);
+          // Using makeFeedWriter with Hex Topic
+          const writer = await bee.makeFeedWriter("sequence", topicHex, signer);
+          console.log("Feed Writer Created:", writer);
 
-            // Correct feed update using FeedWriter (Hex string with 0x prefix)
-            const writer = bee.makeFeedWriter("sequence", topicHex, normalizedAddress);
-            await writer.upload(reference);
-            console.log("✅ Feed Updated Successfully");
-          } catch (addressError) {
-            setUploadStatus("❌ Feed update failed: Invalid Ethereum address or feed error.");
-            console.error("Feed Update Error:", addressError);
-            return;
-          }
+          await writer.upload(reference);
+          console.log("Feed Updated with Reference:", reference);
         }
       }
 
@@ -109,6 +106,7 @@ export default function UploadScreen() {
 
     } catch (err) {
       setUploadStatus("❌ Upload failed: " + err.message);
+      console.error("❌ Error:", err);
       setUploadProgress(0);
     }
   };
@@ -120,11 +118,14 @@ export default function UploadScreen() {
 
         <h2>Select Batch:</h2>
         <div className="batch-list">
-          {batches.map((batch) => (
+          {batches?.map((batch) => (
             <div 
               key={batch.batchID} 
               className={`batch-card ${selectedBatch === batch.batchID ? "selected" : ""}`} 
-              onClick={() => setSelectedBatch(batch.batchID)}
+              onClick={() => {
+                setSelectedBatch(batch.batchID);
+                setIsImmutable(batch.immutableFlag);
+              }}
             >
               <strong>{batch.label || "(No Label)"}</strong><br />
               ID: {batch.batchID}<br />
@@ -149,20 +150,12 @@ export default function UploadScreen() {
         />
 
         <label>Immutable:</label>
-        <input 
-          type="checkbox" 
-          checked={isImmutable} 
-          onChange={() => setIsImmutable(!isImmutable)} 
-        />
+        <input type="checkbox" checked={isImmutable} onChange={() => setIsImmutable(!isImmutable)} disabled={selectedBatch ? batches.find(b => b.batchID === selectedBatch)?.immutableFlag : false} />
 
         {uploadMode === "folder" && !isImmutable && (
           <div>
             <label>Feed Name (Optional):</label>
-            <input 
-              type="text" 
-              value={feedName} 
-              onChange={(e) => setFeedName(e.target.value)} 
-            />
+            <input type="text" value={feedName} onChange={(e) => setFeedName(e.target.value)} />
           </div>
         )}
 
