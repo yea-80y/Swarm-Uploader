@@ -24,7 +24,6 @@ export default function ConnectionScreen() {
     }
 
     setBeeApiUrl(url);
-    console.log("Attempting to connect to:", url);
 
     try {
       const wallet = await fetchWalletBalance(url);
@@ -40,18 +39,41 @@ export default function ConnectionScreen() {
     }
   };
 
+  const proceedToUpload = () => {
+    if (!wallet || batches.length === 0) {
+      setStatus("❌ Please connect first.");
+      return;
+    }
+
+    navigate("/upload", { state: { beeApiUrl, wallet, batches } });
+  };
+
   return (
     <div className="app-container">
       <div className="card">
         <h1>Connect to Bee Node</h1>
 
         <div className="radio-group">
-          <label><input type="radio" value="dappnode" checked={nodeType === "dappnode"} onChange={() => setNodeType("dappnode")} /> Dappnode</label>
-          <label><input type="radio" value="local" checked={nodeType === "local"} onChange={() => setNodeType("local")} /> Local</label>
-          <label><input type="radio" value="manual" checked={nodeType === "manual"} onChange={() => setNodeType("manual")} /> Manual</label>
+          <label>
+            <input type="radio" value="dappnode" checked={nodeType === "dappnode"} onChange={() => setNodeType("dappnode")} /> Dappnode
+          </label>
+          <label>
+            <input type="radio" value="local" checked={nodeType === "local"} onChange={() => setNodeType("local")} /> Local
+          </label>
+          <label>
+            <input type="radio" value="manual" checked={nodeType === "manual"} onChange={() => setNodeType("manual")} /> Manual
+          </label>
         </div>
 
-        {nodeType === "manual" && <input type="text" value={manualUrl} onChange={(e) => setManualUrl(e.target.value)} placeholder="Enter Bee API URL" className="manual-url" />}
+        {nodeType === "manual" && (
+          <input
+            type="text"
+            value={manualUrl}
+            onChange={(e) => setManualUrl(e.target.value)}
+            placeholder="Enter Bee API URL"
+            className="manual-url"
+          />
+        )}
 
         <button onClick={handleConnect} className="btn btn-primary">Connect</button>
 
@@ -80,6 +102,8 @@ export default function ConnectionScreen() {
             </ul>
           </div>
         )}
+
+        <button onClick={proceedToUpload} className="btn btn-primary">Proceed to Upload</button>
       </div>
     </div>
   );

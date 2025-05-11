@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@ethersphere/bee-js": "^9.2.1",
+    "ethers": "^6.14.0",
+    "js-sha3": "^0.9.3",
     "jszip": "^3.10.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
