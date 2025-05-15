@@ -1,4 +1,4 @@
-// ConnectionScreen.jsx (Corrected - Clean, Accurate)
+// ConnectionScreen.jsx (Fully Corrected - Two Navigation Buttons)
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchWalletBalance, fetchPostageBatches } from "./BeeConnection";
@@ -46,6 +46,15 @@ export default function ConnectionScreen() {
     }
 
     navigate("/upload", { state: { beeApiUrl, wallet, batches } });
+  };
+
+  const proceedToBuyBatch = () => {
+    if (!wallet) {
+      setStatus("❌ Please connect first.");
+      return;
+    }
+
+    navigate("/buy-batch", { state: { beeApiUrl } });
   };
 
   return (
@@ -103,7 +112,10 @@ export default function ConnectionScreen() {
           </div>
         )}
 
-        <button onClick={proceedToUpload} className="btn btn-primary">Proceed to Upload</button>
+        <div className="button-group">
+          <button onClick={proceedToUpload} className="btn btn-primary">Proceed to Upload</button>
+          <button onClick={proceedToBuyBatch} className="btn btn-secondary">Buy New Batch</button>
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
-// UploadScreen.jsx (Fully Corrected - Strict Hex String for Bee-JS v9.2.1)
-import React, { useState } from "react";
+// UploadScreen.jsx 
+import React, { useState, useCallback, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Bee } from "@ethersphere/bee-js";
 import { keccak256 } from "js-sha3";
@@ -7,25 +7,35 @@ import "./styles.css";
 
 // Helper: Generate a 64-character Hex String for Feed Topic
 function generateTopicHex(feedName) {
-  const hashHex = keccak256(feedName || "website");
-  const topicHex = "0x" + hashHex.padStart(64, '0');
-
-  console.log("Generated Topic Hex for Feed (64-char 0x Hex):", topicHex);
-
-  if (typeof topicHex !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(topicHex)) {
-    throw new Error("Invalid topic hex string format.");
-  }
-
+  const hashHex = keccak256(feedName);
+  const topicHex = hashHex.padStart(64, '0');
+  console.log("Generated Topic Hex for Feed (64-char Hex, No 0x):", topicHex);
   return topicHex;
 }
+
+// Helper: Set Timeout for API Requests (Prevent Stuck State)
+const timeout = (promise, ms) => {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Request timed out")), ms);
+    promise
+      .then((res) => {
+        clearTimeout(timer);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+};
 
 export default function UploadScreen() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const beeApiUrl = state?.beeApiUrl;
   const wallet = state?.wallet;
-  const batches = state?.batches;
 
+  const [batches, setBatches] = useState([]);
   const [uploadMode, setUploadMode] = useState("file");
   const [file, setFile] = useState(null);
   const [selectedBatch, setSelectedBatch] = useState("");
@@ -33,14 +43,74 @@ export default function UploadScreen() {
   const [uploadStatus, setUploadStatus] = useState("");
   const [feedName, setFeedName] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [feedUrl, setFeedUrl] = useState("");
+  const [feedManifestHash, setFeedManifestHash] = useState("");
+  const [swarmHash, setSwarmHash] = useState("");
+  const [feedTopicHex, setFeedTopicHex] = useState("");
+  const [monitoringFeed, setMonitoringFeed] = useState(false);
 
   const bee = new Bee(beeApiUrl);
+  useEffect(() => {
+    const fetchBatches = async () => {
+      try {
+        const response = await fetch(`${beeApiUrl}/stamps`);
+        const data = await response.json();
+        
+        // ✅ Filter Usable Batches Only
+        const usableBatches = data.stamps.filter(batch => batch.usable);
+        
+        if (usableBatches.length === 0) {
+          console.log("❌ No usable batches found.");
+        } else {
+          console.log("✅ Usable Batches:", usableBatches);
+        }
+  
+        setBatches(usableBatches);
+      } catch (err) {
+        console.error("❌ Error fetching batches:", err);
+        setUploadStatus("❌ Failed to fetch live batch data.");
+      }
+    };
+  
+    fetchBatches();
+  }, [beeApiUrl]);  
+  
+  console.log("✅ Bee API URL:", beeApiUrl);
+  
+  
 
   // Handle File Selection
   const handleFileChange = (e) => {
     const files = e.target.files;
-    setFile(uploadMode === "folder" ? files : files[0]);
+    if (uploadMode === "folder") {
+      setFile(files);
+      console.log("✅ Folder Selected:", files);
+    } else {
+      setFile(files[0]);
+      console.log("✅ File Selected:", files[0]?.name);
+    }
   };
+
+  // Automatic Feed Monitoring
+  useEffect(() => {
+    let interval;
+    if (monitoringFeed && feedUrl) {
+      interval = setInterval(async () => {
+        console.log("🔎 Checking Feed State...");
+        const response = await fetch(feedUrl);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.reference) {
+            console.log("✅ Feed Updated: Reference:", data.reference);
+            setUploadStatus(`✅ Feed Updated: ${data.reference}`);
+            setMonitoringFeed(false);
+            clearInterval(interval);
+          }
+        }
+      }, 5000);
+    }
+    return () => clearInterval(interval);
+  }, [monitoringFeed, feedUrl]);
 
   // Create Ethereum Signer using window.ethereum (Metamask)
   const createSigner = () => {
@@ -57,20 +127,51 @@ export default function UploadScreen() {
     };
   };
 
-  const handleUpload = async () => {
-    if (!file || !selectedBatch) {
-      setUploadStatus("❌ Please select a batch and file.");
-      return;
-    }
+  // Handle Upload
+    const handleUpload = useCallback(async () => {
+      if (!file || !selectedBatch) {
+        setUploadStatus("❌ Please select a batch and file.");
+        return;
+      }
+    
+      // ✅ Capacity Check (NEW CODE - Start)
+      let totalSizeMB = 0;
+      if (uploadMode === "file") {
+        totalSizeMB = file.size / (1024 * 1024); // File Size in MB
+      } else if (uploadMode === "folder") {
+        totalSizeMB = Array.from(file).reduce((acc, f) => acc + f.size, 0) / (1024 * 1024);
+      }
+    
+      console.log("✅ Total Upload Size:", totalSizeMB, "MB");
+    
+      const batch = batches.find(b => b.batchID === selectedBatch);
+      if (!batch) {
+        setUploadStatus("❌ Selected batch not found.");
+        return;
+      }
+    
+      console.log("✅ Selected Batch Capacity:", batch.capacity, "MB");
+    
+      if (totalSizeMB > batch.capacity) {
+        setUploadStatus("❌ Total size exceeds batch capacity.");
+        alert("❌ Total size exceeds batch capacity. Please dilute the batch or buy a new one.");
+        return;
+      }
 
     setUploadStatus("Uploading...");
-    setUploadProgress(0);
+    setSwarmHash("");
+    setFeedManifestHash("");
+    setFeedTopicHex("");
+    setMonitoringFeed(false);
+    setUploadProgress(0); // ✅ Progress Reset
 
     try {
       const batch = batches.find(b => b.batchID === selectedBatch);
       if (!batch) throw new Error("Selected batch not found.");
 
       const isBatchMutable = !batch.immutableFlag;
+
+      // ✅ Immutable Type Check
       if (isImmutable !== !isBatchMutable) {
         setUploadStatus("❌ Upload failed: File type does not match batch type.");
         return;
@@ -80,36 +181,47 @@ export default function UploadScreen() {
 
       if (uploadMode === "file") {
         const result = await bee.uploadFile(selectedBatch, file);
-        reference = result.reference;
+        reference = result.reference.toString();
       } else {
-        const result = await bee.uploadFiles(selectedBatch, file);
-        reference = result.reference;
-
-        if (isBatchMutable) {
-          const topicHex = generateTopicHex(feedName);
-          console.log("Using Topic Hex for Feed (64-char 0x Hex):", topicHex, "Type:", typeof topicHex);
-
-          const signer = createSigner();
-          console.log("Signer Created:", signer);
-
-          // Using makeFeedWriter with Hex Topic
-          const writer = await bee.makeFeedWriter("sequence", topicHex, signer);
-          console.log("Feed Writer Created:", writer);
-
-          await writer.upload(reference);
-          console.log("Feed Updated with Reference:", reference);
-        }
+        const result = await bee.uploadFiles(selectedBatch, file, { indexDocument: "index.html" });
+        reference = result.reference.toString();
       }
 
-      setUploadStatus(`✅ Uploaded! Swarm Hash: ${reference}`);
-      setUploadProgress(100);
+      setSwarmHash(reference);
+      setUploadStatus(`✅ Uploaded Successfully!`);
 
+      if (!isImmutable && isBatchMutable) {
+        const topicHex = generateTopicHex(feedName);
+        setFeedTopicHex(topicHex);
+        const signer = createSigner();
+        const feedUrlFull = `${beeApiUrl}/feeds/${signer.address}/${topicHex}?type=sequence`;
+        setFeedUrl(feedUrlFull);
+
+        const referenceBytes = new TextEncoder().encode(reference);
+        const signature = await signer.sign(referenceBytes);
+
+        await timeout(
+          fetch(feedUrlFull, {
+            method: "POST",
+            headers: {
+              "swarm-postage-batch-id": selectedBatch,
+              "Content-Type": "application/octet-stream",
+              "swarm-signer-address": signer.address,
+              "swarm-signature": signature,
+            },
+            body: referenceBytes,
+          }),
+          10000
+        );
+
+        setMonitoringFeed(true);
+      }
     } catch (err) {
+      console.error("❌ Error:", err); // ✅ Error Logging
       setUploadStatus("❌ Upload failed: " + err.message);
-      console.error("❌ Error:", err);
-      setUploadProgress(0);
+      setUploadProgress(0); // ✅ Progress Reset
     }
-  };
+  }, [file, selectedBatch, uploadMode, isImmutable, feedName, beeApiUrl, wallet, batches]);
 
   return (
     <div className="app-container">
@@ -118,55 +230,54 @@ export default function UploadScreen() {
 
         <h2>Select Batch:</h2>
         <div className="batch-list">
-          {batches?.map((batch) => (
-            <div 
-              key={batch.batchID} 
-              className={`batch-card ${selectedBatch === batch.batchID ? "selected" : ""}`} 
-              onClick={() => {
-                setSelectedBatch(batch.batchID);
-                setIsImmutable(batch.immutableFlag);
-              }}
-            >
-              <strong>{batch.label || "(No Label)"}</strong><br />
-              ID: {batch.batchID}<br />
-              Type: {batch.immutableFlag ? "Immutable" : "Mutable"}<br />
-              Capacity: {batch.capacity} - TTL: {batch.ttl}
-            </div>
-          ))}
+          {batches.length === 0 ? (
+            <p>No available batches. Please buy a batch first.</p>
+          ) : (
+            batches.map((batch) => (
+              <div 
+                key={batch.batchID} 
+                className={`batch-card ${selectedBatch === batch.batchID ? "selected" : ""}`} 
+                onClick={() => { 
+                  setSelectedBatch(batch.batchID); 
+                  setIsImmutable(batch.immutableFlag);
+                }}>
+                <strong>{batch.label || "(No Label)"}</strong><br />
+                ID: {batch.batchID}<br />
+                Type: {batch.immutableFlag ? "Immutable" : "Mutable"}<br />
+                Capacity: {batch.capacity} - TTL: {batch.ttl}
+              </div>
+            ))
+          )}
         </div>
 
         <label>Upload Mode:</label>
         <select value={uploadMode} onChange={(e) => setUploadMode(e.target.value)}>
           <option value="file">File</option>
-          <option value="folder">Folder</option>
+          <option value="folder">Folder (Website)</option>
         </select>
 
+        <label>Select File:</label>
         <input 
           type="file" 
-          webkitdirectory={uploadMode === "folder" ? "true" : undefined} 
-          directory={uploadMode === "folder" ? "true" : undefined} 
+          {...(uploadMode === "folder" ? { webkitdirectory: "true", directory: "true" } : {})} 
           multiple={uploadMode === "folder"} 
           onChange={handleFileChange} 
         />
 
+
         <label>Immutable:</label>
-        <input type="checkbox" checked={isImmutable} onChange={() => setIsImmutable(!isImmutable)} disabled={selectedBatch ? batches.find(b => b.batchID === selectedBatch)?.immutableFlag : false} />
+        <input type="checkbox" checked={isImmutable} onChange={() => setIsImmutable(!isImmutable)} />
 
         {uploadMode === "folder" && !isImmutable && (
           <div>
-            <label>Feed Name (Optional):</label>
-            <input type="text" value={feedName} onChange={(e) => setFeedName(e.target.value)} />
+            <label>Feed Name (Required):</label>
+            <input type="text" value={feedName} onChange={(e) => setFeedName(e.target.value)} required />
           </div>
         )}
 
         <button onClick={handleUpload}>Upload to Swarm</button>
         {uploadStatus && <p>{uploadStatus}</p>}
-
-        <div className="progress-bar">
-          <div className="progress" style={{ width: `${uploadProgress}%` }}></div>
-        </div>
-
-        <button onClick={() => navigate("/")}>Back to Connection</button>
+        {swarmHash && <p>✅ Swarm Hash: <code>{swarmHash}</code></p>}
       </div>
     </div>
   );
