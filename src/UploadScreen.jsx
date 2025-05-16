@@ -4,6 +4,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Bee } from "@ethersphere/bee-js";
 import { keccak256 } from "js-sha3";
 import "./styles.css";
+import { calculateCapacity, fetchBatchTTL, formatTTL } from "./BeeConnection";
+import DilutionPopup from "./DilutionPopup";
 
 // Helper: Generate a 64-character Hex String for Feed Topic
 function generateTopicHex(feedName) {
@@ -48,46 +50,78 @@ export default function UploadScreen() {
   const [swarmHash, setSwarmHash] = useState("");
   const [feedTopicHex, setFeedTopicHex] = useState("");
   const [monitoringFeed, setMonitoringFeed] = useState(false);
+  const [showDilutionPopup, setShowDilutionPopup] = useState(false);
 
   const bee = new Bee(beeApiUrl);
+    
+  
+  console.log("✅ Bee API URL:", beeApiUrl);
+  
+  // Fetch Batches (Now Using Centralized Capacity and TTL)
   useEffect(() => {
     const fetchBatches = async () => {
       try {
         const response = await fetch(`${beeApiUrl}/stamps`);
         const data = await response.json();
         
-        // ✅ Filter Usable Batches Only
-        const usableBatches = data.stamps.filter(batch => batch.usable);
-        
+        const usableBatches = await Promise.all(
+          data.stamps.filter(batch => batch.usable).map(async (batch) => {
+            const ttl = await fetchBatchTTL(beeApiUrl, batch.batchID);
+            return {
+              ...batch,
+              capacity: calculateCapacity(batch.depth),
+              ttl: ttl,
+            };
+          })
+        );
+
         if (usableBatches.length === 0) {
           console.log("❌ No usable batches found.");
         } else {
-          console.log("✅ Usable Batches:", usableBatches);
+          console.log("✅ Usable Batches with Capacity and TTL:", usableBatches);
         }
-  
+
         setBatches(usableBatches);
       } catch (err) {
         console.error("❌ Error fetching batches:", err);
         setUploadStatus("❌ Failed to fetch live batch data.");
       }
     };
-  
-    fetchBatches();
-  }, [beeApiUrl]);  
-  
-  console.log("✅ Bee API URL:", beeApiUrl);
-  
-  
 
-  // Handle File Selection
+    fetchBatches();
+  }, [beeApiUrl]);
+
+  // Handle File Selection (Centralized Capacity Check)
   const handleFileChange = (e) => {
     const files = e.target.files;
+    let totalSizeMB = 0;
+
     if (uploadMode === "folder") {
+      totalSizeMB = Array.from(files).reduce((acc, f) => acc + f.size, 0) / (1024 * 1024);
       setFile(files);
       console.log("✅ Folder Selected:", files);
     } else {
+      totalSizeMB = files[0].size / (1024 * 1024); // File Size in MB
       setFile(files[0]);
       console.log("✅ File Selected:", files[0]?.name);
+    }
+
+    console.log("✅ Total Upload Size:", totalSizeMB, "MB");
+
+    const batch = batches.find(b => b.batchID === selectedBatch);
+    if (!batch) {
+      setUploadStatus("❌ Selected batch not found.");
+      return;
+    }
+
+    console.log("✅ Selected Batch Capacity:", batch.capacity, "MB");
+
+    // ✅ Check if the file size exceeds the batch capacity
+    if (totalSizeMB > parseFloat(batch.capacity)) {
+      setUploadStatus("❌ Total size exceeds batch capacity.");
+      setShowDilutionPopup(true); // ✅ Trigger Popup for Dilution
+    } else {
+      setUploadStatus(""); // Clear any existing status if capacity is sufficient
     }
   };
 
@@ -133,30 +167,7 @@ export default function UploadScreen() {
         setUploadStatus("❌ Please select a batch and file.");
         return;
       }
-    
-      // ✅ Capacity Check (NEW CODE - Start)
-      let totalSizeMB = 0;
-      if (uploadMode === "file") {
-        totalSizeMB = file.size / (1024 * 1024); // File Size in MB
-      } else if (uploadMode === "folder") {
-        totalSizeMB = Array.from(file).reduce((acc, f) => acc + f.size, 0) / (1024 * 1024);
-      }
-    
-      console.log("✅ Total Upload Size:", totalSizeMB, "MB");
-    
-      const batch = batches.find(b => b.batchID === selectedBatch);
-      if (!batch) {
-        setUploadStatus("❌ Selected batch not found.");
-        return;
-      }
-    
-      console.log("✅ Selected Batch Capacity:", batch.capacity, "MB");
-    
-      if (totalSizeMB > batch.capacity) {
-        setUploadStatus("❌ Total size exceeds batch capacity.");
-        alert("❌ Total size exceeds batch capacity. Please dilute the batch or buy a new one.");
-        return;
-      }
+
 
     setUploadStatus("Uploading...");
     setSwarmHash("");
@@ -244,7 +255,8 @@ export default function UploadScreen() {
                 <strong>{batch.label || "(No Label)"}</strong><br />
                 ID: {batch.batchID}<br />
                 Type: {batch.immutableFlag ? "Immutable" : "Mutable"}<br />
-                Capacity: {batch.capacity} - TTL: {batch.ttl}
+                Capacity: {batch.capacity !== "Unknown" ? `${batch.capacity} MB` : "Calculating..."}<br />
+                TTL: {batch.ttl !== "Unknown" ? formatTTL(batch.ttl) : "Calculating..."}
               </div>
             ))
           )}
@@ -278,6 +290,18 @@ export default function UploadScreen() {
         <button onClick={handleUpload}>Upload to Swarm</button>
         {uploadStatus && <p>{uploadStatus}</p>}
         {swarmHash && <p>✅ Swarm Hash: <code>{swarmHash}</code></p>}
+
+        {showDilutionPopup && (
+          <DilutionPopup 
+            beeApiUrl={beeApiUrl} 
+            batch={batches.find(b => b.batchID === selectedBatch)} 
+            onClose={() => setShowDilutionPopup(false)} 
+            onDiluteSuccess={() => {
+              setShowDilutionPopup(false);
+              setUploadStatus("✅ Batch diluted successfully. You can now upload.");
+            }}
+          />
+        )}
       </div>
     </div>
   );
