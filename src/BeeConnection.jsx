@@ -77,19 +77,14 @@ export async function calculateTopupCost(beeApiUrl, batchID, newDepth, desiredTT
 
     if (!stampPrice) {
       console.error("❌ Error: Stamp price not fetched.");
-      return { totalPlur: "0", totalXBZZ: "0.0000", finalTTL: "0d 0h 0m" };
+      return { totalPlur: "0", totalXBZZ: "0.0000", finalTTL: "0d 0h 0m", effectiveTTL: "0d 0h 0m" };
     }
 
-    // ✅ Calculate the TTL to use (Match or Custom)
-    let finalTTL;
-    if (desiredTTL === "match") {
-      finalTTL = data.ttl || 0; // Use existing TTL directly
-    } else {
-      finalTTL = parseInt(desiredTTL);
-      if (isNaN(finalTTL) || finalTTL <= 0) {
-        console.error("❌ Invalid TTL value:", finalTTL);
-        return { totalPlur: "0", totalXBZZ: "0.0000", finalTTL: "0d 0h 0m" };
-      }
+    // ✅ Calculate the TTL to use (Only Fixed Options)
+    let finalTTL = parseInt(desiredTTL);
+    if (isNaN(finalTTL) || finalTTL <= 0) {
+      console.error("❌ Invalid TTL value:", finalTTL);
+      return { totalPlur: "0", totalXBZZ: "0.0000", finalTTL: "0d 0h 0m", effectiveTTL: "0d 0h 0m" };
     }
 
     console.log("🔎 Calculating for Final TTL:", finalTTL);
@@ -111,20 +106,28 @@ export async function calculateTopupCost(beeApiUrl, batchID, newDepth, desiredTT
     // ✅ Convert PLUR to xBZZ for display
     const totalXBZZ = (Number(topupAmount) / 1e16).toFixed(8);
 
+    // ✅ Calculate Effective TTL for Existing Stamps After Dilution
+    const existingTTL = data.ttl || 0;
+    const effectiveTTL = Math.floor(existingTTL * (Math.pow(2, currentDepth) / Math.pow(2, newDepth)));
+    console.log("🔎 Effective TTL After Dilution:", effectiveTTL);
+
     // ✅ Calculate and format final TTL (for display)
     const finalTTLDisplay = formatTTL(finalTTL);
+    const effectiveTTLDisplay = formatTTL(effectiveTTL);
 
     return {
       totalPlur: topupAmount.toString(),
       totalXBZZ: totalXBZZ,
-      finalTTL: finalTTLDisplay
+      finalTTL: finalTTLDisplay,
+      effectiveTTL: effectiveTTLDisplay
     };
   } catch (err) {
     console.error("❌ Error calculating top-up cost:", err);
     return {
       totalPlur: "0",
       totalXBZZ: "0.0000",
-      finalTTL: "0d 0h 0m"
+      finalTTL: "0d 0h 0m",
+      effectiveTTL: "0d 0h 0m"
     };
   }
 }

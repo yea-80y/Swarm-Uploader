@@ -8,10 +8,10 @@ export default function DilutionPopup({ beeApiUrl, batch, onClose, onDiluteSucce
   const [topupCost, setTopupCost] = useState({ totalPlur: "0.00000000", totalXBZZ: "0.00000000" });
   const [newDepth, setNewDepth] = useState(batch.depth); // Start with the current depth
   const [status, setStatus] = useState(null);
+  const [estimatedFinalTTL, setEstimatedFinalTTL] = useState("0d 0h 0m");
 
   // ✅ Automatically Calculate the Required Depth Based on File Size
   useEffect(() => {
-    // Calculate the required depth for the given file size
     let requiredDepth = batch.depth;
     while (fileSizeMB > EFFECTIVE_VOLUME_MEDIUM_MB[requiredDepth] && requiredDepth < 35) {
       requiredDepth++;
@@ -25,21 +25,37 @@ export default function DilutionPopup({ beeApiUrl, batch, onClose, onDiluteSucce
       const cost = await calculateTopupCost(beeApiUrl, batch.batchID, newDepth, dilutionTTL);
       console.log("🔎 Calculated Top-Up Cost:", cost);
       setTopupCost(cost);
+
+      // ✅ Calculate the Estimated TTL After Top-Up and Dilution
+      const existingTTL = batch.ttl || 0;
+      const finalTTLSeconds = dilutionTTL === "match" ? existingTTL : dilutionTTL + existingTTL;
+      setEstimatedFinalTTL(formatTTL(finalTTLSeconds));
     };
     fetchCost();
   }, [beeApiUrl, batch, dilutionTTL, newDepth]);
 
   const handleDiluteBatch = async () => {
-    setStatus("⏳ Processing dilution...");
-    const depthIncrease = newDepth - batch.depth; // ✅ Correctly calculates the increase
-
-    // Calculate top-up cost for the selected TTL
-    const result = await diluteBatch(beeApiUrl, batch.batchID, depthIncrease, parseInt(topupCost.totalPlur));
-    setStatus(result.message);
+    setStatus("⏳ Processing Top-Up...");
     
-    if (result.success) {
+    // ✅ Step 1: Top-Up First
+    const topupResult = await diluteBatch(beeApiUrl, batch.batchID, 0, parseInt(topupCost.totalPlur));
+    if (!topupResult.success) {
+      setStatus("❌ Top-Up Failed. Please try again.");
+      return;
+    }
+
+    setStatus("✅ Top-Up Successful. Processing Dilution...");
+
+    // ✅ Step 2: Proceed with Dilution
+    const depthIncrease = newDepth - batch.depth;
+    const dilutionResult = await diluteBatch(beeApiUrl, batch.batchID, depthIncrease, 0);
+
+    if (dilutionResult.success) {
+      setStatus("✅ Dilution Successful.");
       onDiluteSuccess();
       setTimeout(onClose, 2000); // Auto-close after 2 seconds
+    } else {
+      setStatus("❌ Dilution Failed. Please try again.");
     }
   };
 
@@ -56,8 +72,9 @@ export default function DilutionPopup({ beeApiUrl, batch, onClose, onDiluteSucce
 
         {/* ✅ Set TTL (Match Current TTL or Custom) */}
         <label>Set New TTL:</label>
+        // Remove the "Match TTL" option from the dropdown
+        <label>Set New TTL:</label>
         <select value={dilutionTTL} onChange={(e) => setDilutionTTL(parseInt(e.target.value))}>
-          <option value="match">Match Current TTL ({formatTTL(batch.ttl)})</option>
           <option value={93600}>26 Hours</option>
           <option value={604800}>1 Week</option>
           <option value={2592000}>1 Month</option>
@@ -66,6 +83,7 @@ export default function DilutionPopup({ beeApiUrl, batch, onClose, onDiluteSucce
 
         {/* ✅ Display the Calculated Top-Up Cost */}
         <p>Top-Up Cost: {topupCost.totalPlur} PLUR ({topupCost.totalXBZZ} xBZZ)</p>
+        <p>Estimated TTL After Top-Up and Dilution: {estimatedFinalTTL}</p>
 
         {/* ✅ Clear Explanation for the User */}
         <p>The top-up cost is calculated to ensure your batch maintains the desired TTL even after dilution (increased capacity).</p>
