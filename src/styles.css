@@ -218,3 +218,71 @@ button.btn-success:hover {
   font-size: 14px;
   color: #333;
 }
+
+/* ENS Update Button Styles */
+.btn-primary {
+  background-color: #4f46e5;
+  color: #ffffff;
+  padding: 12px 24px;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin: 10px 5px;
+}
+
+.btn-primary:hover {
+  background-color: #4338ca;
+}
+
+.btn-secondary {
+  background-color: #e5e7eb;
+  color: #111827;
+  border: 1px solid #ccc;
+  padding: 10px 16px;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background-color: #d1d5db;
+}
+
+/* ENS Update Form Styling */
+.ens-update {
+  margin-top: 20px;
+  text-align: left;
+  font-size: 16px;
+  padding: 20px;
+}
+
+.ens-update h1 {
+  font-size: 24px;
+  margin-bottom: 16px;
+}
+
+.ens-update input[type="text"] {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  font-size: 16px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #f9fafb;
+}
+
+.ens-update input[type="text"]:focus {
+  outline: 2px solid #4f46e5;
+}
+
+.ens-update p {
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.ens-update button {
+  margin-top: 16px;
+}

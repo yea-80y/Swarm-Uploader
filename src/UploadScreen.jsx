@@ -92,43 +92,43 @@ export default function UploadScreen() {
     fetchBatches();
   }, [beeApiUrl]);
 
-  // ✅ Handle File Selection (Centralized Capacity Check)
-const handleFileChange = (e) => {
-  const files = e.target.files;
-  let totalSizeMB = 0;
+  // ✅ Handle File Selection (Fixed Capacity Check)
+  const handleFileChange = (e) => {
+    const files = e.target.files;
+    let totalSizeMB = 0;
 
-  if (uploadMode === "folder") {
-    totalSizeMB = Array.from(files).reduce((acc, f) => acc + f.size, 0) / (1024 * 1024);
-    setFile(files);
-    console.log("✅ Folder Selected:", files);
-  } else {
-    totalSizeMB = files[0]?.size / (1024 * 1024); // File Size in MB
-    setFile(files[0]);
-    console.log("✅ File Selected:", files[0]?.name);
-  }
+    if (uploadMode === "folder") {
+      totalSizeMB = Array.from(files).reduce((acc, f) => acc + f.size, 0) / (1024 * 1024);
+      setFile(files);
+      console.log("✅ Folder Selected:", files);
+    } else {
+      totalSizeMB = files[0]?.size / (1024 * 1024); // File Size in MB
+      setFile(files[0]);
+      console.log("✅ File Selected:", files[0]?.name);
+    }
 
-  console.log("✅ Total Upload Size:", totalSizeMB, "MB");
-  setFileSizeMB(totalSizeMB); // ✅ Correctly store the file size
+    console.log("✅ Total Upload Size:", totalSizeMB, "MB");
+    setFileSizeMB(totalSizeMB); // ✅ Correctly store the file size
 
-  const batch = batches.find(b => b.batchID === selectedBatch);
-  if (!batch) {
-    setUploadStatus("❌ Selected batch not found.");
-    return;
-  }
+    const batch = batches.find(b => b.batchID === selectedBatch);
+    if (!batch) {
+      setUploadStatus("❌ Selected batch not found.");
+      setShowDilutionPopup(false); // ✅ Ensure Popup is Hidden if No Batch
+      return;
+    }
 
-  console.log("✅ Selected Batch Capacity:", batch.capacity, "MB");
+    console.log("✅ Selected Batch Capacity:", batch.capacity, "MB");
 
-  // ✅ Check if the file size exceeds the batch capacity
-  if (totalSizeMB > parseFloat(batch.capacity)) {
-    setUploadStatus("❌ Total size exceeds batch capacity.");
-    setShowDilutionPopup(true); // ✅ Trigger Popup for Dilution
-  } else {
-    setUploadStatus(""); // Clear any existing status if capacity is sufficient
-  }
+    // ✅ Check if the file size exceeds the batch capacity (Corrected)
+    if (totalSizeMB > parseFloat(batch.capacity)) {
+      setUploadStatus("❌ Total size exceeds batch capacity.");
+      setShowDilutionPopup(true); // ✅ Trigger Popup for Dilution Only if Needed
+    } else {
+      setShowDilutionPopup(false); // ✅ Hide Popup if Capacity is Sufficient
+      setUploadStatus(""); // Clear any existing status if capacity is sufficient
+    }
+  };
 
-  // ✅ Directly Pass File Size to DilutionPopup
-  setShowDilutionPopup(true);
-};
 
 
 
@@ -153,20 +153,6 @@ const handleFileChange = (e) => {
     return () => clearInterval(interval);
   }, [monitoringFeed, feedUrl]);
 
-  // Create Ethereum Signer using window.ethereum (Metamask)
-  const createSigner = () => {
-    return {
-      address: wallet.ethereumAddress,
-      async sign(data) {
-        const hexData = '0x' + Array.from(data).map(b => b.toString(16).padStart(2, '0')).join('');
-        const signature = await window.ethereum.request({
-          method: 'personal_sign',
-          params: [hexData, wallet.ethereumAddress],
-        });
-        return signature;
-      },
-    };
-  };
 
   // Handle Upload
     const handleUpload = useCallback(async () => {
@@ -296,7 +282,18 @@ const handleFileChange = (e) => {
 
         <button onClick={handleUpload}>Upload to Swarm</button>
         {uploadStatus && <p>{uploadStatus}</p>}
-        {swarmHash && <p>✅ Swarm Hash: <code>{swarmHash}</code></p>}
+        {swarmHash && (
+          <>
+            <p>✅ Swarm Hash: <code>{swarmHash}</code></p>
+            <button 
+              className="btn btn-primary"
+              onClick={() => navigate("/ens-update", { state: { swarmHash } })}
+            >
+              Update ENS Content Hash
+            </button>
+          </>
+        )}
+
 
         {showDilutionPopup && (
           <DilutionPopup 
