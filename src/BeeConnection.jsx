@@ -219,34 +219,44 @@ export const fetchPostageBatches = async (beeApiUrl) => {
   }).sort((a, b) => b.blockNumber - a.blockNumber);
 };
 
-// ✅ Function to Dilute Batch with Dynamic Top-Up Cost
-export async function diluteBatch(beeApiUrl, batchID, depthIncrease, ttlTopup) {
+// ✅ Function to Dilute Batch with Dynamic Top-Up Cost (Corrected)
+export async function diluteBatch(beeApiUrl, batchID, newDepth, ttlTopup) {
   try {
-    // Top-up to maintain or extend TTL
+    // ✅ Step 1: Top-Up to Maintain or Extend TTL (Optional)
     if (ttlTopup > 0) {
-      await fetch(`${beeApiUrl}/stamps/${batchID}/topup`, {
+      console.log("🔎 Top-Up Amount (PLUR):", ttlTopup);
+      const topupResponse = await fetch(`${beeApiUrl}/stamps/${batchID}/topup`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ amount: ttlTopup }),
+        body: JSON.stringify({ amount: ttlTopup })
       });
+
+      if (!topupResponse.ok) {
+        console.error("❌ Top-Up Failed:", await topupResponse.text());
+        return { success: false, message: "❌ Failed to Top-Up TTL." };
+      }
+      console.log("✅ Top-Up Successful.");
     }
 
-    // Dilute the batch by increasing depth
-    const response = await fetch(`${beeApiUrl}/stamps/${batchID}/${depthIncrease}`, {
+    // ✅ Step 2: Correct API Call for Dilution (Direct PATCH)
+    console.log("🔎 Diluting Batch:", batchID, "to New Depth:", newDepth);
+    const response = await fetch(`${beeApiUrl}/stamps/dilute/${batchID}/${newDepth}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
       },
     });
 
-    const data = await response.json();
-    if (data.batchID) {
-      return { success: true, message: "✅ Batch diluted successfully." };
-    } else {
-      return { success: false, message: "❌ Failed to dilute batch." };
+    if (!response.ok) {
+      console.error("❌ Dilution Failed:", await response.text());
+      return { success: false, message: "❌ Failed to Dilute Batch." };
     }
+
+    console.log("✅ Batch Diluted Successfully.");
+    return { success: true, message: "✅ Batch diluted successfully." };
+
   } catch (err) {
     console.error("❌ Error during batch dilution:", err);
     return { success: false, message: "❌ Error during batch dilution." };

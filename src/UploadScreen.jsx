@@ -51,6 +51,7 @@ export default function UploadScreen() {
   const [feedTopicHex, setFeedTopicHex] = useState("");
   const [monitoringFeed, setMonitoringFeed] = useState(false);
   const [showDilutionPopup, setShowDilutionPopup] = useState(false);
+  const [fileSizeMB, setFileSizeMB] = useState(0); // ✅ Add this state for file size
 
   const bee = new Bee(beeApiUrl);
     
@@ -91,39 +92,45 @@ export default function UploadScreen() {
     fetchBatches();
   }, [beeApiUrl]);
 
-  // Handle File Selection (Centralized Capacity Check)
-  const handleFileChange = (e) => {
-    const files = e.target.files;
-    let totalSizeMB = 0;
+  // ✅ Handle File Selection (Centralized Capacity Check)
+const handleFileChange = (e) => {
+  const files = e.target.files;
+  let totalSizeMB = 0;
 
-    if (uploadMode === "folder") {
-      totalSizeMB = Array.from(files).reduce((acc, f) => acc + f.size, 0) / (1024 * 1024);
-      setFile(files);
-      console.log("✅ Folder Selected:", files);
-    } else {
-      totalSizeMB = files[0].size / (1024 * 1024); // File Size in MB
-      setFile(files[0]);
-      console.log("✅ File Selected:", files[0]?.name);
-    }
+  if (uploadMode === "folder") {
+    totalSizeMB = Array.from(files).reduce((acc, f) => acc + f.size, 0) / (1024 * 1024);
+    setFile(files);
+    console.log("✅ Folder Selected:", files);
+  } else {
+    totalSizeMB = files[0]?.size / (1024 * 1024); // File Size in MB
+    setFile(files[0]);
+    console.log("✅ File Selected:", files[0]?.name);
+  }
 
-    console.log("✅ Total Upload Size:", totalSizeMB, "MB");
+  console.log("✅ Total Upload Size:", totalSizeMB, "MB");
+  setFileSizeMB(totalSizeMB); // ✅ Correctly store the file size
 
-    const batch = batches.find(b => b.batchID === selectedBatch);
-    if (!batch) {
-      setUploadStatus("❌ Selected batch not found.");
-      return;
-    }
+  const batch = batches.find(b => b.batchID === selectedBatch);
+  if (!batch) {
+    setUploadStatus("❌ Selected batch not found.");
+    return;
+  }
 
-    console.log("✅ Selected Batch Capacity:", batch.capacity, "MB");
+  console.log("✅ Selected Batch Capacity:", batch.capacity, "MB");
 
-    // ✅ Check if the file size exceeds the batch capacity
-    if (totalSizeMB > parseFloat(batch.capacity)) {
-      setUploadStatus("❌ Total size exceeds batch capacity.");
-      setShowDilutionPopup(true); // ✅ Trigger Popup for Dilution
-    } else {
-      setUploadStatus(""); // Clear any existing status if capacity is sufficient
-    }
-  };
+  // ✅ Check if the file size exceeds the batch capacity
+  if (totalSizeMB > parseFloat(batch.capacity)) {
+    setUploadStatus("❌ Total size exceeds batch capacity.");
+    setShowDilutionPopup(true); // ✅ Trigger Popup for Dilution
+  } else {
+    setUploadStatus(""); // Clear any existing status if capacity is sufficient
+  }
+
+  // ✅ Directly Pass File Size to DilutionPopup
+  setShowDilutionPopup(true);
+};
+
+
 
   // Automatic Feed Monitoring
   useEffect(() => {
@@ -294,7 +301,8 @@ export default function UploadScreen() {
         {showDilutionPopup && (
           <DilutionPopup 
             beeApiUrl={beeApiUrl} 
-            batch={batches.find(b => b.batchID === selectedBatch)} 
+            batch={batches.find(b => b.batchID === selectedBatch)}
+            fileSizeMB={fileSizeMB} // ✅ Pass file size to DilutionPopup 
             onClose={() => setShowDilutionPopup(false)} 
             onDiluteSuccess={() => {
               setShowDilutionPopup(false);

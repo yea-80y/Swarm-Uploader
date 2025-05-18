@@ -72,8 +72,6 @@ export default function DilutionPopup({ beeApiUrl, batch, onClose, onDiluteSucce
 
         {/* ✅ Set TTL (Match Current TTL or Custom) */}
         <label>Set New TTL:</label>
-        // Remove the "Match TTL" option from the dropdown
-        <label>Set New TTL:</label>
         <select value={dilutionTTL} onChange={(e) => setDilutionTTL(parseInt(e.target.value))}>
           <option value={93600}>26 Hours</option>
           <option value={604800}>1 Week</option>
