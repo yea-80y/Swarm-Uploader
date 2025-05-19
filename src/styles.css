@@ -32,20 +32,13 @@ body {
   width: 100%;
   max-width: 500px;
   padding: 30px;
-  background-color: #ffffff;
+  background-color: var(--bg-color); /* ✅ Theme variable */
+  color: var(--text-color);          /* ✅ Theme variable */
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   margin-bottom: 40px;
   text-align: center;
-}
-
-.card.light {
-  background-color: #ffffff;
-}
-
-.card.dark {
-  background-color: #1f2937;
-  color: #f3f4f6;
+  transition: background-color 0.3s, color 0.3s; /* ✅ Smooth transition */
 }
 
 /* Input and Select Styles */
@@ -60,8 +53,11 @@ select {
   font-size: 16px;
   border: 1px solid #ddd;
   border-radius: 8px;
-  background-color: #f9fafb;
+  background-color: var(--bg-color); /* ✅ Dynamic background */
+  color: var(--text-color);          /* ✅ Dynamic text color */
+  transition: background-color 0.3s, color 0.3s;
 }
+
 
 input[type="text"]:focus,
 select:focus {
@@ -75,15 +71,27 @@ button {
   font-size: 16px;
   border: none;
   border-radius: 8px;
-  background-color: #4f46e5;
-  color: #ffffff;
+  background-color: var(--button-bg); /* ✅ Theme Variable */
+  color: var(--button-text);         /* ✅ Theme Variable */
   cursor: pointer;
   transition: background-color 0.3s ease;
   margin: 10px 5px;
 }
 
+/* Light Mode Button Colors */
+:root {
+  --button-bg: #4f46e5;
+  --button-text: #ffffff;
+}
+
+/* Dark Mode Button Colors */
+.dark {
+  --button-bg: #4f46e5;
+  --button-text: #ffffff;
+}
+
 button:hover {
-  background-color: #3730a3;
+  background-color: #4338ca; /* ✅ Consistent for both modes */
 }
 
 button.btn-primary {
@@ -125,6 +133,11 @@ button.btn-success:hover {
   margin-bottom: 10px;
 }
 
+/* Radio Button Labels (Adapted to Theme) */
+.radio-group label {
+  color: var(--text-color); /* ✅ Theme variable */
+}
+
 /* Status Message Styling */
 .status-msg {
   margin-top: 20px;
@@ -147,27 +160,38 @@ button.btn-success:hover {
   font-size: 14px;
 }
 
+/* Batch Text (Adapted to Theme) */
+.batch-list,
+.batch-list ul,
+.batch-card {
+  color: var(--text-color); /* ✅ Theme Variable */
+}
+
+
 .batch-list ul {
   list-style: none;
   padding-left: 0;
 }
 
 .batch-card {
-  background-color: #f3f4f6;
+  background-color: var(--bg-color); /* ✅ Theme Variable */
+  color: var(--text-color);          /* ✅ Theme Variable */
   padding: 12px;
   border-radius: 8px;
   margin-bottom: 12px;
   border: 2px solid transparent;
   cursor: pointer;
+  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
 }
 
+/* Batch Card Hover and Selected State (Adapted to Theme) */
 .batch-card:hover {
-  border-color: #6366f1;
+  border-color: #6366f1; /* ✅ Consistent for both modes */
 }
 
 .batch-card.selected {
   border-color: #4f46e5;
-  background-color: #e0e7ff;
+  background-color: rgba(79, 70, 229, 0.1); /* ✅ Subtle hover effect */
 }
 
 /* Upload Form Styles */
@@ -199,12 +223,35 @@ button.btn-success:hover {
 }
 
 .dilution-popup {
-  background-color: #ffffff;
+  background-color: var(--bg-color); /* ✅ Theme Variable */
+  color: var(--text-color);          /* ✅ Theme Variable */
   padding: 20px;
   border-radius: 10px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
   max-width: 400px;
   width: 90%;
+  transition: background-color 0.3s, color 0.3s; /* ✅ Smooth transition */
+}
+
+/* Dilution Popup Text and Button (Adapted to Theme) */
+.dilution-popup h1,
+.dilution-popup p {
+  color: var(--text-color); /* ✅ Theme Variable */
+}
+
+.dilution-popup button {
+  background-color: var(--button-bg); /* ✅ Theme Variable */
+  color: var(--button-text);         /* ✅ Theme Variable */
+  border: none;
+  padding: 12px 20px;
+  font-size: 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.dilution-popup button:hover {
+  background-color: var(--button-hover);
 }
 
 .popup-actions {
@@ -285,4 +332,223 @@ button.btn-success:hover {
 
 .ens-update button {
   margin-top: 16px;
+}
+/* HomeScreen Styling (Perfectly Balanced Layout) */
+.home-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 600px;
+  margin: auto;
+  padding: 20px;
+}
+
+.logo-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.logo {
+  max-width: 400px; /* Increased for better visibility */
+  height: auto;
+}
+
+.text-container {
+  margin-bottom: 20px;
+}
+
+.main-title {
+  font-size: 2.8rem;
+  margin: 10px 0;
+  color: var(--main-title-color);
+  font-weight: 700;
+}
+
+.sub-title {
+  font-size: 1.6rem;
+  margin: 0;
+  color: var(--sub-title-color);
+  font-weight: 500;
+}
+
+.description {
+  font-size: 1rem;
+  color: var(--description-color);
+  line-height: 1.6;
+  margin-top: 15px;
+  margin-bottom: 20px;
+}
+
+.getting-started {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.getting-started ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.getting-started li {
+  margin-bottom: 10px;
+}
+
+.button-group {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 25px;
+}
+
+/* Light Mode (Default) */
+:root {
+  --bg-color: #ffffff;
+  --text-color: #000000;
+  --main-title-color: #333;
+  --sub-title-color: #555;
+  --description-color: #666;
+}
+
+/* Dark Mode (Controlled by Toggle) */
+.dark {
+  --bg-color: #111827;
+  --text-color: #f3f4f6;
+  --main-title-color: #f3f4f6;
+  --sub-title-color: #e5e7eb;
+  --description-color: #cbd5e1;
+}
+
+/* Apply Theme Colors */
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+.app-container {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+/* Theme Toggle Styling */
+.theme-toggle {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  cursor: pointer;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  gap: 5px;
+  color: var(--text-color); /* ✅ Adapts to theme */
+}
+
+.toggle-label .slider {
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+  background-color: var(--button-bg);
+  border-radius: 10px;
+  position: relative;
+  transition: background-color 0.3s;
+}
+
+.toggle-label input:checked + .slider {
+  background-color: #4f46e5;
+}
+
+.toggle-label .slider::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  transition: 0.3s;
+  top: 1px;
+  left: 1px;
+}
+
+.toggle-label input:checked + .slider::before {
+  transform: translateX(20px);
+}
+
+/* Header Styling - Centered Top Logo (No Overlap) */
+.header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  text-align: center;
+  padding-top: 20px; /* ✅ Space above the logo */
+  margin-bottom: 0px; /* ✅ Reduced space below the logo (default) */
+}
+
+.header-logo {
+  max-width: 150px; /* ✅ Controlled Logo Size */
+  height: auto;
+  cursor: pointer;
+  transition: opacity 0.3s;
+}
+
+.header-logo:hover {
+  opacity: 0.8;
+}
+
+/* HomeScreen Specific (Logo Higher Up) */
+.home-screen .header {
+  padding-top: 0;
+  margin-bottom: 20px; /* ✅ Normal spacing below the logo on HomeScreen */
+}
+
+/* App Container Adjustments */
+.app-container {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0; /* ✅ Reduced padding for closer content */
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.app-container:not(.home-screen) .card {
+  margin-top: 10px; /* ✅ Closer to the logo */
+}
+/* Discord Link Styling */
+.discord-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.discord-text {
+  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px; /* ✅ Space between text and icon */
+}
+
+.discord-button {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.discord-icon {
+  width: 44px; /* ✅ Increase the size (20px - 24px is ideal) */
+  height: 44px;
+  cursor: pointer;
+  transition: opacity 0.3s;
+}
+
+.discord-icon:hover {
+  opacity: 0.8;
 }

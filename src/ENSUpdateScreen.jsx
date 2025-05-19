@@ -2,7 +2,9 @@
 import React, { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { useNavigate, useLocation } from "react-router-dom";
+import Header from "./Header"; // ✅ Import Header
 import "./styles.css";
+import ThemeToggle from "./ThemeToggle"; // ✅ Import Toggle
 
 export default function ENSUpdateScreen() {
   const navigate = useNavigate();
@@ -105,6 +107,11 @@ export default function ENSUpdateScreen() {
 
   return (
     <div className="app-container">
+    <Header /> {/* ✅ Top-Left Logo */}
+    {/* ✅ Light/Dark Mode Toggle - Top-Right */}
+          <div className="theme-toggle-container">
+            <ThemeToggle />
+          </div>
       <div className="card">
         <h1>Update ENS Content Hash</h1>
         <p>Wallet: {walletAddress || "Not connected"}</p>

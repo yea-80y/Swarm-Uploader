@@ -2,7 +2,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchWalletBalance, fetchPostageBatches } from "./BeeConnection";
+import Header from "./Header"; // ✅ Import Header
 import "./styles.css";
+import ThemeToggle from "./ThemeToggle"; // ✅ Import Toggle
 
 export default function ConnectionScreen() {
   const [beeApiUrl, setBeeApiUrl] = useState("http://bee.swarm.public.dappnode:1633");
@@ -12,6 +14,7 @@ export default function ConnectionScreen() {
   const [nodeType, setNodeType] = useState("dappnode");
   const [manualUrl, setManualUrl] = useState("");
   const navigate = useNavigate();
+
 
   const handleConnect = async () => {
     let url = beeApiUrl;
@@ -59,6 +62,13 @@ export default function ConnectionScreen() {
 
   return (
     <div className="app-container">
+      <Header /> {/* ✅ Top-Left Logo */}
+    
+      {/* ✅ Light/Dark Mode Toggle - Top-Right */}
+      <div className="theme-toggle-container">
+        <ThemeToggle />
+      </div>
+
       <div className="card">
         <h1>Connect to Bee Node</h1>
 

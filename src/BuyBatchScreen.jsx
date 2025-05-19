@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import Header from "./Header"; // ✅ Import Header
 import "./styles.css";
+import ThemeToggle from "./ThemeToggle"; // ✅ Import Toggle
 
 export default function BuyBatchScreen() {
   const { state } = useLocation();
@@ -202,6 +204,11 @@ const checkBatchUsable = async (batchID, initialImmutable) => {
 
   return (
     <div className="app-container">
+      <Header /> {/* ✅ Top-Left Logo */}
+      {/* ✅ Light/Dark Mode Toggle - Top-Right */}
+          <div className="theme-toggle-container">
+            <ThemeToggle />
+          </div>
       <div className="card">
         <h1>Buy Swarm Batch</h1>
         <input type="file" onChange={handleFileChange} />

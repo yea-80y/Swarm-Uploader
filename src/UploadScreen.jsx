@@ -6,6 +6,8 @@ import { keccak256 } from "js-sha3";
 import "./styles.css";
 import { calculateCapacity, fetchBatchTTL, formatTTL } from "./BeeConnection";
 import DilutionPopup from "./DilutionPopup";
+import Header from "./Header"; // ✅ Import Header
+import ThemeToggle from "./ThemeToggle"; // ✅ Import Toggle
 
 // Helper: Generate a 64-character Hex String for Feed Topic
 function generateTopicHex(feedName) {
@@ -229,6 +231,11 @@ export default function UploadScreen() {
 
   return (
     <div className="app-container">
+    <Header /> {/* ✅ Top-Left Logo */}
+    {/* ✅ Light/Dark Mode Toggle - Top-Right */}
+          <div className="theme-toggle-container">
+            <ThemeToggle />
+          </div>
       <div className="card">
         <h1>Upload to Swarm</h1>
 
