@@ -122,7 +122,7 @@ const updateENS = async () => {
     // 6) Build the content-hash using the ENS content-hash lib for the Swarm codec:
     //    encode() will give you the correct multicodec prefix + your 32-byte digest:
     const normalized = swarmHash.replace(/^0x/, "").toLowerCase();
-    const encoded   = encode("bzz", normalized);
+    const encoded   = encode("swarm", normalized);
     // encode(...) returns a hex string *without* "0x", so just prefix once:
     const contentHash = "0x" + encoded;
 
