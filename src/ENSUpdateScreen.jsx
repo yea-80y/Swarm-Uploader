@@ -62,21 +62,33 @@ export default function ENSUpdateScreen() {
     }
   };
 
-  // ✅ Function to Update ENS Content Hash
-  const updateENS = async () => {
+  // ✅ Function to Update ENS Content Hash (Improved)
+const updateENS = async () => {
     if (!ensName || !swarmHash) {
       setStatus("❌ Please enter an ENS name and ensure Swarm Hash is present.");
       return;
     }
-
+  
     if (!provider) {
       setStatus("❌ Wallet not connected. Please connect first.");
       return;
     }
-
+  
+    // ✅ Ensure ENS Name is Valid
+    if (!/^([a-z0-9-]+\.)*[a-z0-9-]+\.eth$/.test(ensName)) {
+      setStatus("❌ Invalid ENS name. Ensure it ends with .eth");
+      return;
+    }
+  
+    // ✅ Validate Swarm Hash Format (64-character hex string)
+    if (!/^([a-fA-F0-9]{64})$/.test(swarmHash)) {
+      setStatus("❌ Invalid Swarm hash. Ensure it is a 64-character hex string.");
+      return;
+    }
+  
     try {
       setStatus("⏳ Updating ENS record...");
-
+  
       const signer = await provider.getSigner();
       const ensRegistryAddress = "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e"; // Mainnet ENS Registry
       const ensContract = new ethers.Contract(
@@ -84,26 +96,26 @@ export default function ENSUpdateScreen() {
         ["function setContenthash(bytes32 node, bytes calldata hash) external"],
         signer
       );
-
-      const node = ethers.namehash(ensName);
-      const contentHash = "0xe30101720020" + swarmHash; // Swarm hash formatted
-
+  
+      const node = ethers.namehash(ensName.trim().toLowerCase());
+      const contentHash = "0xe30101720020" + swarmHash.toLowerCase(); // Swarm hash formatted
+  
       console.log("✅ ENS Node:", node);
       console.log("✅ Content Hash:", contentHash);
-
+  
       const tx = await ensContract.setContenthash(node, contentHash);
       setStatus("⏳ Transaction sent. Waiting for confirmation...");
       await tx.wait();
       setStatus("✅ ENS updated successfully!");
-
+  
       // ✅ Generate and set ENS URL after successful update
-      setEnsUrl(`https://${ensName}.eth.limo`);
+      setEnsUrl(`https://${ensName.trim().toLowerCase()}.eth.limo`);
     } catch (err) {
       console.error("❌ Error Updating ENS:", err);
       setStatus("❌ Failed to update ENS: " + err.message);
       setEnsUrl(""); // Clear URL on error
     }
-  };
+  };  
 
   return (
     <div className="app-container">

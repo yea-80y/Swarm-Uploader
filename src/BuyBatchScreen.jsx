@@ -21,6 +21,7 @@ export default function BuyBatchScreen() {
   const [plurPerChunk, setPlurPerChunk] = useState(null);
   const [batchUsable, setBatchUsable] = useState(false);
   const [beeSoundPlayed, setBeeSoundPlayed] = useState(false);
+  const [uploadMode, setUploadMode] = useState("file"); // ✅ File by default
   const navigate = useNavigate();
   const beeSound = new Audio("/Bee.mp3");
   const BLOCKS_PER_DAY = 17280;
@@ -68,21 +69,39 @@ export default function BuyBatchScreen() {
     }
   };
 
+ // ✅ Updated File Selection Logic (Supports File and Folder)
   const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    setFile(selectedFile);
-    const depth = calculateBatchDepth(selectedFile.size / (1024 * 1024));
+    const files = e.target.files;
+    let totalSizeMB = 0;
+
+    if (uploadMode === "folder") {
+      // ✅ For folder, calculate total size of all files
+      totalSizeMB = Array.from(files).reduce((acc, f) => acc + f.size, 0) / (1024 * 1024);
+      setFile(files); // Save all files for folder
+      console.log("✅ Folder Selected:", files);
+    } else {
+      // ✅ For single file, calculate size of the selected file
+      totalSizeMB = files[0]?.size / (1024 * 1024);
+      setFile(files[0]);
+      console.log("✅ File Selected:", files[0]?.name);
+    }
+
+    console.log("✅ Total Upload Size:", totalSizeMB, "MB");
+    
+    // ✅ Calculate batch depth based on total size (folder or single file)
+    const depth = calculateBatchDepth(totalSizeMB);
     setBatchDepth(depth);
     recalculateCost(depth, ttl);
   };
 
+  // ✅ Calculate Batch Depth Based on Size (Unchanged)
   const calculateBatchDepth = (fileSizeMB) => {
     for (const [depth, capacityMB] of Object.entries(EFFECTIVE_VOLUME_MEDIUM_MB)) {
       if (fileSizeMB <= capacityMB) {
         return parseInt(depth);
       }
     }
-    return 35;
+    return 35; // Default maximum depth if file size exceeds all options
   };
 
   const recalculateCost = (depth, storageDurationSeconds) => {
@@ -209,9 +228,24 @@ const checkBatchUsable = async (batchID, initialImmutable) => {
           <div className="theme-toggle-container">
             <ThemeToggle />
           </div>
-      <div className="card">
-        <h1>Buy Swarm Batch</h1>
-        <input type="file" onChange={handleFileChange} />
+          <div className="card">
+          <h1>Buy Swarm Batch</h1>
+          
+          {/* ✅ Upload Mode Selector */}
+          <label>Upload Mode:</label>
+          <select value={uploadMode} onChange={(e) => setUploadMode(e.target.value)}>
+            <option value="file">File</option>
+            <option value="folder">Folder (Website)</option>
+          </select>
+
+          {/* ✅ File or Folder Input */}
+          <input 
+            type="file" 
+            {...(uploadMode === "folder" ? { webkitdirectory: "true", directory: "true" } : {})} 
+            multiple={uploadMode === "folder"} 
+            onChange={handleFileChange} 
+          />
+          
         <input type="text" placeholder="Batch Name" value={batchName} onChange={(e) => setBatchName(e.target.value)} />
         <label>Immutable:</label>
         <input type="checkbox" checked={isImmutable} onChange={(e) => setIsImmutable(e.target.checked)} />

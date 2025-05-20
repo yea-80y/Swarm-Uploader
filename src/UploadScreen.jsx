@@ -9,6 +9,14 @@ import DilutionPopup from "./DilutionPopup";
 import Header from "./Header"; // ✅ Import Header
 import ThemeToggle from "./ThemeToggle"; // ✅ Import Toggle
 
+// ✅ Function to Play Bee Sound
+const playBeeSound = () => {
+  const audioElement = document.getElementById("bee-sound");
+  if (audioElement) {
+    audioElement.play();
+  }
+};
+
 // Helper: Generate a 64-character Hex String for Feed Topic
 function generateTopicHex(feedName) {
   const hashHex = keccak256(feedName);
@@ -131,9 +139,6 @@ export default function UploadScreen() {
     }
   };
 
-
-
-
   // Automatic Feed Monitoring
   useEffect(() => {
     let interval;
@@ -195,6 +200,8 @@ export default function UploadScreen() {
 
       setSwarmHash(reference);
       setUploadStatus(`✅ Uploaded Successfully!`);
+      playBeeSound(); // ✅ Play Bee Sound on Success
+
 
       if (!isImmutable && isBatchMutable) {
         const topicHex = generateTopicHex(feedName);
@@ -314,6 +321,8 @@ export default function UploadScreen() {
             }}
           />
         )}
+        {/* ✅ Hidden Audio Element for Bee Sound */}
+        <audio id="bee-sound" src="/Bee.mp3" preload="auto"></audio>
       </div>
     </div>
   );

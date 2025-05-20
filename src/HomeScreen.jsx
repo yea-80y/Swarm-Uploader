@@ -9,7 +9,8 @@ export default function HomeScreen() {
 
   return (
     <div className="app-container home-screen">
-      <div className="logo-container">
+       {/* ✅ Updated: Added "home-logo" class */}
+       <div className="logo-container home-logo">
         <img src="/logo.png" alt="WoCo Logo" className="logo" />
       </div>
       
@@ -76,7 +77,8 @@ export default function HomeScreen() {
           </a>
         </p>
       </div>
-        <p>Built by the Community, For the Community🦾🦾</p>
+        <p>Report any Bugs on Discord or GitHub 🐛</p>
+        <p>Built by the Community, For the Community 🦾</p>
     </div>
   );
 }

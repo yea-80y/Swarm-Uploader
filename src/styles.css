@@ -552,3 +552,128 @@ body {
 .discord-icon:hover {
   opacity: 0.8;
 }
+
+/* Confirmation Popup Overlay */
+.confirmation-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6); /* Darker overlay for better focus */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px); /* ✅ Soft blur for modern look */
+  transition: opacity 0.3s ease;
+}
+
+/* Confirmation Popup Card */
+.confirmation-popup {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  padding: 25px 30px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  transition: background-color 0.3s, color 0.3s;
+  position: relative;
+  opacity: 0;
+  transform: translateY(-20px);
+  animation: fadeIn 0.3s forwards;
+}
+
+/* Confirmation Popup Text */
+.confirmation-popup h3 {
+  font-size: 1.6rem;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.confirmation-popup p {
+  font-size: 1rem;
+  margin: 8px 0;
+  color: var(--text-color);
+  line-height: 1.5;
+}
+
+/* Confirmation Popup Buttons */
+.confirmation-popup .popup-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.confirmation-popup button {
+  background-color: var(--button-bg);
+  color: var(--button-text);
+  border: none;
+  padding: 12px 20px;
+  font-size: 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.confirmation-popup button:hover {
+  background-color: #4338ca;
+}
+
+.confirmation-popup button.btn-secondary {
+  background-color: #e5e7eb;
+  color: #111827;
+  border: 1px solid #ddd;
+}
+
+.confirmation-popup button.btn-secondary:hover {
+  background-color: #d1d5db;
+}
+
+/* Smooth Fade-In Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark Mode (Ensures Clear Visibility in Dark Mode) */
+.dark .confirmation-popup {
+  background-color: #1f2937;
+  color: #f3f4f6;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
+}
+
+.dark .confirmation-popup button.btn-secondary {
+  background-color: #374151;
+  color: #f3f4f6;
+}
+
+.dark .confirmation-popup button.btn-secondary:hover {
+  background-color: #4b5563;
+}
+
+/* Confirmation Popup Status Message */
+.confirmation-popup .status-message {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #d9534f;
+}
+
+.confirmation-popup .status-success {
+  color: #28a745;
+}
+
+/* ✅ Home Screen - Adjust Logo Padding */
+.home-logo {
+  padding-top: 20px; /* Adjust this value to increase or decrease the gap */
+}

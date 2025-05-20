@@ -60,19 +60,19 @@ export const calculateTheoreticalCapacityMB = (depth) => {
 };
 
 
-// ✅ Corrected Top-Up Cost Calculation (Accurate with Floating-Point Math)
+// ✅ Corrected Top-Up Cost Calculation (Accurate with Fixed Scaling)
 export async function calculateTopupCost(beeApiUrl, batchID, newDepth, desiredTTL) {
   try {
     const response = await fetch(`${beeApiUrl}/stamps/${batchID}`);
     const data = await response.json();
     const currentDepth = data.depth;
-    const currentAmountPerChunk = parseInt(data.amount); // PLUR per chunk
-    const stampPrice = await fetchCurrentStampPrice(beeApiUrl);
-    const blockTime = 5; // seconds (Gnosis Chain block time)
-    
+    const existingAmountPerChunk = BigInt(data.amount); // PLUR per chunk as BigInt
+    const stampPrice = BigInt(await fetchCurrentStampPrice(beeApiUrl));
+    const blockTime = 5n; // Gnosis Chain block time (in seconds) as BigInt
+
     console.log("🔎 Batch Details for Top-Up Calculation:", {
       currentDepth,
-      currentAmountPerChunk,
+      existingAmountPerChunk: existingAmountPerChunk.toString(),
     });
 
     if (!stampPrice) {
@@ -81,27 +81,28 @@ export async function calculateTopupCost(beeApiUrl, batchID, newDepth, desiredTT
     }
 
     // ✅ Calculate the TTL to use (Only Fixed Options)
-    let finalTTL = parseInt(desiredTTL);
-    if (isNaN(finalTTL) || finalTTL <= 0) {
+    let finalTTL = BigInt(desiredTTL);
+    if (finalTTL <= 0) {
       console.error("❌ Invalid TTL value:", finalTTL);
       return { totalPlur: "0", totalXBZZ: "0.0000", finalTTL: "0d 0h 0m", effectiveTTL: "0d 0h 0m" };
     }
 
-    console.log("🔎 Calculating for Final TTL:", finalTTL);
+    console.log("🔎 Calculating for Final TTL:", finalTTL.toString());
 
-    // ✅ Corrected Calculation for PLUR per chunk (Using Float for Accurate Calculation)
-    const requiredAmountPerChunk = Math.ceil(
-      (Number(stampPrice) / blockTime) * finalTTL
-    );
-    console.log("🔎 Required Amount Per Chunk:", requiredAmountPerChunk);
+    // ✅ Correct Calculation for Required Amount Per Chunk (Accurate)
+    const requiredAmountPerChunk = stampPrice * finalTTL;
+    console.log("🔎 Required Amount Per Chunk (PLUR):", requiredAmountPerChunk.toString());
 
-    // ✅ Calculate the required total balance for the new depth
-    const requiredTotalBalance = BigInt(requiredAmountPerChunk) * BigInt(Math.pow(2, newDepth));
-    console.log("🔎 Required Total Balance:", requiredTotalBalance);
-
-    // ✅ Calculate the top-up based on the difference
-    const topupAmount = requiredTotalBalance;
-    console.log("🔎 Calculated Top-Up Amount:", topupAmount);
+    // ✅ Calculate the total balance required for the new depth
+    const requiredTotalBalance = requiredAmountPerChunk * BigInt(Math.pow(2, newDepth));
+    const currentTotalBalance = existingAmountPerChunk * BigInt(Math.pow(2, currentDepth));
+    
+    // ✅ Top-Up Amount is the difference, but never negative
+    const topupAmount = requiredTotalBalance > currentTotalBalance 
+      ? requiredTotalBalance - currentTotalBalance 
+      : BigInt(0);
+    
+    console.log("🔎 Calculated Top-Up Amount (PLUR - Clean Integer):", topupAmount.toString());
 
     // ✅ Convert PLUR to xBZZ for display
     const totalXBZZ = (Number(topupAmount) / 1e16).toFixed(8);
@@ -112,7 +113,7 @@ export async function calculateTopupCost(beeApiUrl, batchID, newDepth, desiredTT
     console.log("🔎 Effective TTL After Dilution:", effectiveTTL);
 
     // ✅ Calculate and format final TTL (for display)
-    const finalTTLDisplay = formatTTL(finalTTL);
+    const finalTTLDisplay = formatTTL(Number(finalTTL));
     const effectiveTTLDisplay = formatTTL(effectiveTTL);
 
     return {
