@@ -1,8 +1,10 @@
-// vite.config.js - Updated with Bee-JS Fix
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+// vite.config.js - Final Working Version for Bee-js
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
 
 export default defineConfig({
+  base: './',           // ← ensures all asset URLs are relative
   plugins: [react()],
   build: {
     outDir: 'dist',
@@ -12,30 +14,27 @@ export default defineConfig({
       include: [/node_modules/, /@ethersphere\/bee-js/],
     },
     rollupOptions: {
-      external: ['stream', 'buffer', 'util', 'events'],
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            return 'vendor';
+            return 'vendor'
           }
         },
       },
     },
   },
-  server: {
-    port: 5173,
-  },
   resolve: {
     alias: {
-      axios: 'axios/dist/axios.min.js',
-      stream: 'stream-browserify',
+      axios: 'axios/dist/axios.min.js',              // ✅ Force browser-compatible Axios
+      stream: 'stream-browserify',                   // ✅ Polyfills for Bee-js
       events: 'events',
-      util: 'util',
       buffer: 'buffer',
+      util: 'util',
+      crypto: 'crypto-browserify',
     },
   },
   define: {
-    'process.env': {},
-    global: 'window',
+    'process.env': {},                                // ✅ Avoid "process is not defined" errors
+    global: 'globalThis',
   },
-});
+})

@@ -10,6 +10,7 @@
   "dependencies": {
     "@ethersphere/bee-js": "^9.3.0",
     "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
     "ethers": "^6.14.0",
     "events": "^3.3.0",
     "js-sha3": "^0.9.3",

@@ -17,14 +17,6 @@ const playBeeSound = () => {
   }
 };
 
-// Helper: Generate a 64-character Hex String for Feed Topic
-function generateTopicHex(feedName) {
-  const hashHex = keccak256(feedName);
-  const topicHex = hashHex.padStart(64, '0');
-  console.log("Generated Topic Hex for Feed (64-char Hex, No 0x):", topicHex);
-  return topicHex;
-}
-
 // Helper: Set Timeout for API Requests (Prevent Stuck State)
 const timeout = (promise, ms) => {
   return new Promise((resolve, reject) => {
@@ -53,15 +45,11 @@ export default function UploadScreen() {
   const [selectedBatch, setSelectedBatch] = useState("");
   const [isImmutable, setIsImmutable] = useState(true);
   const [uploadStatus, setUploadStatus] = useState("");
-  const [feedName, setFeedName] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [feedUrl, setFeedUrl] = useState("");
-  const [feedManifestHash, setFeedManifestHash] = useState("");
   const [swarmHash, setSwarmHash] = useState("");
-  const [feedTopicHex, setFeedTopicHex] = useState("");
-  const [monitoringFeed, setMonitoringFeed] = useState(false);
   const [showDilutionPopup, setShowDilutionPopup] = useState(false);
   const [fileSizeMB, setFileSizeMB] = useState(0); // ✅ Add this state for file size
+  const [feedName, setFeedName] = useState(""); // ✅ Add this back to avoid ReferenceError
 
   const bee = new Bee(beeApiUrl);
     
@@ -108,10 +96,14 @@ export default function UploadScreen() {
     let totalSizeMB = 0;
 
     if (uploadMode === "folder") {
-      totalSizeMB = Array.from(files).reduce((acc, f) => acc + f.size, 0) / (1024 * 1024);
-      setFile(files);
-      console.log("✅ Folder Selected:", files);
-    } else {
+      const fileArray = Array.from(files).map(f =>
+        new File([f], f.webkitRelativePath || f.name, { type: f.type })
+      );
+      totalSizeMB = fileArray.reduce((acc, f) => acc + f.size, 0) / (1024 * 1024);
+      setFile(fileArray);
+      console.log("✅ Folder Selected (with paths):", fileArray.map(f => f.name));
+    }
+    else {
       totalSizeMB = files[0]?.size / (1024 * 1024); // File Size in MB
       setFile(files[0]);
       console.log("✅ File Selected:", files[0]?.name);
@@ -139,41 +131,16 @@ export default function UploadScreen() {
     }
   };
 
-  // Automatic Feed Monitoring
-  useEffect(() => {
-    let interval;
-    if (monitoringFeed && feedUrl) {
-      interval = setInterval(async () => {
-        console.log("🔎 Checking Feed State...");
-        const response = await fetch(feedUrl);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.reference) {
-            console.log("✅ Feed Updated: Reference:", data.reference);
-            setUploadStatus(`✅ Feed Updated: ${data.reference}`);
-            setMonitoringFeed(false);
-            clearInterval(interval);
-          }
-        }
-      }, 5000);
+
+  // ✅ Handle Upload
+  const handleUpload = useCallback(async () => {
+    if (!file || !selectedBatch) {
+      setUploadStatus("❌ Please select a batch and file.");
+      return;
     }
-    return () => clearInterval(interval);
-  }, [monitoringFeed, feedUrl]);
-
-
-  // Handle Upload
-    const handleUpload = useCallback(async () => {
-      if (!file || !selectedBatch) {
-        setUploadStatus("❌ Please select a batch and file.");
-        return;
-      }
-
 
     setUploadStatus("Uploading...");
     setSwarmHash("");
-    setFeedManifestHash("");
-    setFeedTopicHex("");
-    setMonitoringFeed(false);
     setUploadProgress(0); // ✅ Progress Reset
 
     try {
@@ -201,40 +168,12 @@ export default function UploadScreen() {
       setSwarmHash(reference);
       setUploadStatus(`✅ Uploaded Successfully!`);
       playBeeSound(); // ✅ Play Bee Sound on Success
-
-
-      if (!isImmutable && isBatchMutable) {
-        const topicHex = generateTopicHex(feedName);
-        setFeedTopicHex(topicHex);
-        const signer = createSigner();
-        const feedUrlFull = `${beeApiUrl}/feeds/${signer.address}/${topicHex}?type=sequence`;
-        setFeedUrl(feedUrlFull);
-
-        const referenceBytes = new TextEncoder().encode(reference);
-        const signature = await signer.sign(referenceBytes);
-
-        await timeout(
-          fetch(feedUrlFull, {
-            method: "POST",
-            headers: {
-              "swarm-postage-batch-id": selectedBatch,
-              "Content-Type": "application/octet-stream",
-              "swarm-signer-address": signer.address,
-              "swarm-signature": signature,
-            },
-            body: referenceBytes,
-          }),
-          10000
-        );
-
-        setMonitoringFeed(true);
-      }
     } catch (err) {
       console.error("❌ Error:", err); // ✅ Error Logging
       setUploadStatus("❌ Upload failed: " + err.message);
       setUploadProgress(0); // ✅ Progress Reset
     }
-  }, [file, selectedBatch, uploadMode, isImmutable, feedName, beeApiUrl, wallet, batches]);
+  }, [file, selectedBatch, uploadMode, isImmutable, beeApiUrl, batches]);
 
   return (
     <div className="app-container">
@@ -285,14 +224,25 @@ export default function UploadScreen() {
 
 
         <label>Immutable:</label>
-        <input type="checkbox" checked={isImmutable} onChange={() => setIsImmutable(!isImmutable)} />
-
+        <input 
+          type="checkbox" 
+          checked={isImmutable} 
+          onChange={() => setIsImmutable(!isImmutable)} 
+        />
+    
         {uploadMode === "folder" && !isImmutable && (
           <div>
             <label>Feed Name (Required):</label>
-            <input type="text" value={feedName} onChange={(e) => setFeedName(e.target.value)} required />
+            <input 
+              type="text" 
+              value={feedName} 
+              onChange={(e) => setFeedName(e.target.value)} 
+              required 
+              placeholder="Enter Feed Name for Website"
+            />
           </div>
         )}
+
 
         <button onClick={handleUpload}>Upload to Swarm</button>
         {uploadStatus && <p>{uploadStatus}</p>}
