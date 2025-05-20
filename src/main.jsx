@@ -1,8 +1,8 @@
-// main.jsx - Updated with HomeScreen
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import HomeScreen from "./HomeScreen"; // ✅ New Home Screen
+// ✅ Switch to HashRouter (aliased as Router)
+import { HashRouter as Router, Routes, Route } from "react-router-dom";
+import HomeScreen from "./HomeScreen";
 import ConnectionScreen from "./ConnectionScreen";
 import UploadScreen from "./UploadScreen";
 import BuyBatchScreen from "./BuyBatchScreen";
@@ -11,7 +11,7 @@ import "./styles.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <Router> {/* ✅ wraps routes with HashRouter */}
       <Routes>
         <Route path="/" element={<HomeScreen />} />
         <Route path="/connect" element={<ConnectionScreen />} />
@@ -19,6 +19,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route path="/buy-batch" element={<BuyBatchScreen />} />
         <Route path="/ens-update" element={<ENSUpdateScreen />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   </React.StrictMode>
 );

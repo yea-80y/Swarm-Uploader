@@ -11,7 +11,7 @@ export default function HomeScreen() {
     <div className="app-container home-screen">
        {/* ✅ Updated: Added "home-logo" class */}
        <div className="logo-container home-logo">
-        <img src="/logo.png" alt="WoCo Logo" className="logo" />
+        <img src="logo.png" alt="WoCo Logo" className="logo" />
       </div>
       
       <div className="theme-toggle-container">
@@ -73,7 +73,7 @@ export default function HomeScreen() {
             rel="noopener noreferrer"
             className="discord-button"
           >
-            <img src="/discord-icon.svg" alt="Discord" className="discord-icon" />
+            <img src="discord-icon.svg" alt="Discord" className="discord-icon" />
           </a>
         </p>
       </div>

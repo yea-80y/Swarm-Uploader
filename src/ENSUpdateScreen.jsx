@@ -1,6 +1,7 @@
 // ENSUpdateScreen.jsx - Auto-Detect ENS Name + Direct ENS Link
 import React, { useState, useEffect } from "react";
 import { ethers } from "ethers";
+import { encode } from "@ensdomains/content-hash";
 import { useNavigate, useLocation } from "react-router-dom";
 import Header from "./Header"; // ✅ Import Header
 import "./styles.css";
@@ -62,60 +63,91 @@ export default function ENSUpdateScreen() {
     }
   };
 
-  // ✅ Function to Update ENS Content Hash (Improved)
+  // ✅ Function to Update ENS Content Hash (using the Public Resolver)
 const updateENS = async () => {
-    if (!ensName || !swarmHash) {
-      setStatus("❌ Please enter an ENS name and ensure Swarm Hash is present.");
-      return;
+  if (!ensName || !swarmHash) {
+    setStatus("❌ Please enter an ENS name and ensure Swarm Hash is present.");
+    return;
+  }
+  if (!provider) {
+    setStatus("❌ Wallet not connected. Please connect first.");
+    return;
+  }
+  if (!/^([a-z0-9-]+\.)*[a-z0-9-]+\.eth$/.test(ensName)) {
+    setStatus("❌ Invalid ENS name. Ensure it ends with .eth");
+    return;
+  }
+  if (!/^([a-fA-F0-9]{64})$/.test(swarmHash)) {
+    setStatus("❌ Invalid Swarm hash. Ensure it is a 64-character hex string.");
+    return;
+  }
+
+  try {
+    setStatus("⏳ Updating ENS record...");
+
+    // 1) Get signer from provider
+    const signer = await provider.getSigner();
+
+    // 2) Read‐only ENS registry to find your resolver
+    const registry = new ethers.Contract(
+      "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
+      [
+        "function resolver(bytes32 node) view returns (address)"
+      ],
+      provider
+    );
+
+    // 3) Compute ENS namehash
+    const node = ethers.namehash(ensName.trim().toLowerCase());
+
+    // 4) Lookup resolver
+    let resolverAddress = await registry.resolver(node);  // ← change to `let`
+
+    // 5a) If no resolver is set…
+    if (resolverAddress === ethers.ZeroAddress) {
+      const PUBLIC_RESOLVER = "0x226159d592E2b063810a10Ebf6dcbFDA94Ed68b8";
+      // ensure you call setResolver on a signer‐connected registry:
+      const registryWithSigner = registry.connect(signer);
+      await registryWithSigner.setResolver(node, PUBLIC_RESOLVER);
+      resolverAddress = PUBLIC_RESOLVER;         // now works
     }
-  
-    if (!provider) {
-      setStatus("❌ Wallet not connected. Please connect first.");
-      return;
-    }
-  
-    // ✅ Ensure ENS Name is Valid
-    if (!/^([a-z0-9-]+\.)*[a-z0-9-]+\.eth$/.test(ensName)) {
-      setStatus("❌ Invalid ENS name. Ensure it ends with .eth");
-      return;
-    }
-  
-    // ✅ Validate Swarm Hash Format (64-character hex string)
-    if (!/^([a-fA-F0-9]{64})$/.test(swarmHash)) {
-      setStatus("❌ Invalid Swarm hash. Ensure it is a 64-character hex string.");
-      return;
-    }
-  
-    try {
-      setStatus("⏳ Updating ENS record...");
-  
-      const signer = await provider.getSigner();
-      const ensRegistryAddress = "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e"; // Mainnet ENS Registry
-      const ensContract = new ethers.Contract(
-        ensRegistryAddress,
-        ["function setContenthash(bytes32 node, bytes calldata hash) external"],
-        signer
-      );
-  
-      const node = ethers.namehash(ensName.trim().toLowerCase());
-      const contentHash = "0xe30101720020" + swarmHash.toLowerCase(); // Swarm hash formatted
-  
-      console.log("✅ ENS Node:", node);
-      console.log("✅ Content Hash:", contentHash);
-  
-      const tx = await ensContract.setContenthash(node, contentHash);
-      setStatus("⏳ Transaction sent. Waiting for confirmation...");
-      await tx.wait();
-      setStatus("✅ ENS updated successfully!");
-  
-      // ✅ Generate and set ENS URL after successful update
-      setEnsUrl(`https://${ensName.trim().toLowerCase()}.eth.limo`);
-    } catch (err) {
-      console.error("❌ Error Updating ENS:", err);
-      setStatus("❌ Failed to update ENS: " + err.message);
-      setEnsUrl(""); // Clear URL on error
-    }
-  };  
+
+    // 5b) Instantiate the *Public Resolver* (writable) with the signer
+    const resolver = new ethers.Contract(
+      resolverAddress,
+      ["function setContenthash(bytes32 node, bytes calldata hash) external"],
+      signer
+    );
+
+    // 6) Build the content-hash using the ENS content-hash lib for the Swarm codec:
+    //    encode() will give you the correct multicodec prefix + your 32-byte digest:
+    const normalized = swarmHash.replace(/^0x/, "").toLowerCase();
+    const encoded   = encode("bzz", normalized);
+    // encode(...) returns a hex string *without* "0x", so just prefix once:
+    const contentHash = "0x" + encoded;
+
+
+    console.log("✅ ENS Node:", node);
+    console.log("✅ Resolver Address:", resolverAddress);
+    console.log("✅ Content Hash:", contentHash);
+    console.log("✅ Encoded Content Hash:", contentHash);
+
+    // 7) Send it to the resolver, not the registry
+    const tx = await resolver.setContenthash(node, contentHash);
+    setStatus("⏳ Transaction sent. Waiting for confirmation...");
+    await tx.wait();
+    setStatus("✅ ENS updated successfully!");
+
+    // 8) Generate view link
+    setEnsUrl(`https://${ensName.trim().toLowerCase()}.limo`);
+  } catch (err) {
+    console.error("❌ Error Updating ENS:", err);
+    // Display either revert reason or generic message
+    const message = err.reason || err.message || "Transaction reverted";
+    setStatus("❌ Failed to update ENS: " + message);
+    setEnsUrl("");
+  }
+};  
 
   return (
     <div className="app-container">
@@ -162,7 +194,7 @@ const updateENS = async () => {
               rel="noopener noreferrer" 
               className="btn btn-link"
             >
-              View on {ensName}.eth.limo
+              View on {ensName}.limo
             </a>
           </div>
         )}

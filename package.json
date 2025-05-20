@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ensdomains/content-hash": "^3.0.0",
     "@ethersphere/bee-js": "^9.3.0",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",

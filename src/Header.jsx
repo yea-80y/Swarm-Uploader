@@ -9,7 +9,7 @@ export default function Header() {
   return (
     <div className="header">
       <img 
-        src="/logo.png" 
+        src="logo.png" 
         alt="WoCo Logo" 
         className="header-logo" 
         onClick={() => navigate("/")} 

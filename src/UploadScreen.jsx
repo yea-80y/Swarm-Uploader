@@ -90,44 +90,53 @@ export default function UploadScreen() {
     fetchBatches();
   }, [beeApiUrl]);
 
-  // ✅ Handle File Selection (Fixed Capacity Check)
-  const handleFileChange = (e) => {
-    const files = e.target.files;
-    let totalSizeMB = 0;
 
-    if (uploadMode === "folder") {
-      const fileArray = Array.from(files).map(f =>
-        new File([f], f.webkitRelativePath || f.name, { type: f.type })
-      );
-      totalSizeMB = fileArray.reduce((acc, f) => acc + f.size, 0) / (1024 * 1024);
-      setFile(fileArray);
-      console.log("✅ Folder Selected (with paths):", fileArray.map(f => f.name));
-    }
-    else {
-      totalSizeMB = files[0]?.size / (1024 * 1024); // File Size in MB
-      setFile(files[0]);
-      console.log("✅ File Selected:", files[0]?.name);
+    // ✅ Handle File Selection (Fixed Capacity Check)
+    const handleFileChange = (e) => {
+      const files = e.target.files;
+      let totalSizeMB = 0;
+
+      if (uploadMode === "folder") {
+    // 1) Preserve folder structure; strip off the leading "dist/" folder
+    const fileArray = Array.from(files).map(f => {
+      const fullPath = f.webkitRelativePath || f.name;              // e.g. "dist/assets/index-ABC.js"
+      const relativePath = fullPath.startsWith('dist/')
+        ? fullPath.slice(5)                                         // remove "dist/"
+        : fullPath;
+      return new File([f], relativePath, { type: f.type });
+    });
+    console.log("✅ Folder Selected (with paths):", fileArray.map(f => f.name));
+    
+    // 2) Compute total size
+    totalSizeMB = fileArray.reduce((acc, f) => acc + f.size, 0) / (1024 * 1024);
+    setFile(fileArray);
+  }
+ else {
+      // single-file mode
+      const single = files[0];
+      console.log("✅ File Selected:", single.name);
+      totalSizeMB = single.size / (1024 * 1024);
+      setFile(single);
     }
 
+    // 3) Shared capacity check
     console.log("✅ Total Upload Size:", totalSizeMB, "MB");
-    setFileSizeMB(totalSizeMB); // ✅ Correctly store the file size
+    setFileSizeMB(totalSizeMB);
 
     const batch = batches.find(b => b.batchID === selectedBatch);
     if (!batch) {
       setUploadStatus("❌ Selected batch not found.");
-      setShowDilutionPopup(false); // ✅ Ensure Popup is Hidden if No Batch
+      setShowDilutionPopup(false);
       return;
     }
-
     console.log("✅ Selected Batch Capacity:", batch.capacity, "MB");
 
-    // ✅ Check if the file size exceeds the batch capacity (Corrected)
     if (totalSizeMB > parseFloat(batch.capacity)) {
       setUploadStatus("❌ Total size exceeds batch capacity.");
-      setShowDilutionPopup(true); // ✅ Trigger Popup for Dilution Only if Needed
+      setShowDilutionPopup(true);
     } else {
-      setShowDilutionPopup(false); // ✅ Hide Popup if Capacity is Sufficient
-      setUploadStatus(""); // Clear any existing status if capacity is sufficient
+      setShowDilutionPopup(false);
+      setUploadStatus("");
     }
   };
 
@@ -272,7 +281,7 @@ export default function UploadScreen() {
           />
         )}
         {/* ✅ Hidden Audio Element for Bee Sound */}
-        <audio id="bee-sound" src="/Bee.mp3" preload="auto"></audio>
+        <audio id="bee-sound" src="Bee.mp3" preload="auto"></audio>
       </div>
     </div>
   );
