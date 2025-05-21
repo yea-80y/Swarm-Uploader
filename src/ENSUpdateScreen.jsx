@@ -123,8 +123,15 @@ const updateENS = async () => {
     //    encode() will give you the correct multicodec prefix + your 32-byte digest:
     const normalized = swarmHash.replace(/^0x/, "").toLowerCase();
     const encoded   = encode("swarm", normalized);
+
+    // **DEBUG**: raw multicodec bytes (should start `e40170…`)
+    console.log("📦 Raw multicodec (no 0x):", encoded);
+
     // encode(...) returns a hex string *without* "0x", so just prefix once:
     const contentHash = "0x" + encoded;
+
+    // **DEBUG**: final contentHash and length (should be 0x + 66 hex chars)
+    console.log("🧩 Final contentHash:", contentHash, "length:", contentHash.length);
 
 
     console.log("✅ ENS Node:", node);
