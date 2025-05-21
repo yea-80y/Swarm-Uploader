@@ -144,6 +144,8 @@ export default function BuyBatchScreen() {
   
       const apiUrl = `${beeApiUrl}/stamps/${plurPerChunk.toString()}/${batchDepth}?label=${encodeURIComponent(batchName)}`;
       console.log("✅ API URL:", apiUrl); // Debugging log
+      console.log(`📡 API Call → Depth Used: ${batchDepth}`);
+
   
       const response = await fetch(apiUrl, {
         method: "POST",

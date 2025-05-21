@@ -146,19 +146,25 @@ export function formatBzz(plur) {
   return (parseFloat(plur) / 10 ** 16).toFixed(4) + " xBZZ";
 }
 
-// Maps depth → effective volume (MB) using Swarm’s medium erasure coding
+// ✅ Maps depth → effective volume (MB) using Swarm’s medium erasure coding (unencrypted)
 export const EFFECTIVE_VOLUME_MEDIUM_MB = {
-  17: 6.19, 18: 104.18, 19: 639.27, 20: 3270,
-  21: 6540, 22: 13107, 23: 26214, 24: 52428,
-  25: 104857, 26: 209715, 27: 419430, 28: 838860,
-  29: 1677721, 30: 3355443, 31: 7860000, 32: 15870000,
-  33: 31940000, 34: 64190000, 35: 128800000
+  17: 0.04156, 18: 6.19, 19: 104.18, 20: 655.36,
+  21: 1310.72, 22: 2621.44, 23: 5242.88, 24: 10485.76,
+  25: 20971.52, 26: 41943.04, 27: 83886.08, 28: 167772.16,
+  29: 335544.32, 30: 671088.64, 31: 1342177.28, 32: 2684354.56,
+  33: 5368709.12, 34: 10737418.24, 35: 21474836.48
 };
 
-// Function to Calculate Capacity
+// ✅ Function to Calculate and Format Capacity with Dynamic Units (Fixed)
 export const calculateCapacity = (depth) => {
-  return EFFECTIVE_VOLUME_MEDIUM_MB[depth] || "Unknown";
+  const size = EFFECTIVE_VOLUME_MEDIUM_MB[depth];
+  if (!size) return "Unknown";
+
+  // ✏️ Always show MB — even for very small sizes like 0.04 MB (Swarm docs use MB)
+  if (size < 1024) return `${size.toFixed(2)} MB`;
+  return `${(size / 1024).toFixed(2)} GB`;
 };
+
 
 // ✅ Function to Fetch TTL for a Batch
 export const fetchBatchTTL = async (beeApiUrl, batchID) => {
@@ -213,7 +219,7 @@ export const fetchPostageBatches = async (beeApiUrl) => {
     return {
       ...batch,
       batchID: batch.batchID?.toString() || "N/A",
-      capacity: `${capacityMB} MB`,
+      capacity: calculateCapacity(batch.depth),
       ttl: ttlDisplay,
       type: batch.immutableFlag ? "Immutable" : "Mutable"
     };

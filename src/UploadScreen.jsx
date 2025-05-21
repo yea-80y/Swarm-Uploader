@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Bee } from "@ethersphere/bee-js";
 import { keccak256 } from "js-sha3";
 import "./styles.css";
-import { calculateCapacity, fetchBatchTTL, formatTTL } from "./BeeConnection";
+import { calculateCapacity, fetchBatchTTL, formatTTL, } from "./BeeConnection";
 import DilutionPopup from "./DilutionPopup";
 import Header from "./Header"; // ✅ Import Header
 import ThemeToggle from "./ThemeToggle"; // ✅ Import Toggle
@@ -49,6 +49,7 @@ export default function UploadScreen() {
   const [swarmHash, setSwarmHash] = useState("");
   const [showDilutionPopup, setShowDilutionPopup] = useState(false);
   const [fileSizeMB, setFileSizeMB] = useState(0); // ✅ Add this state for file size
+  const [formattedFileSize, setFormattedFileSize] = useState(""); // ✅ New state
   const [feedName, setFeedName] = useState(""); // ✅ Add this back to avoid ReferenceError
 
   const bee = new Bee(beeApiUrl);
@@ -122,6 +123,9 @@ export default function UploadScreen() {
     // 3) Shared capacity check
     console.log("✅ Total Upload Size:", totalSizeMB, "MB");
     setFileSizeMB(totalSizeMB);
+
+    const formatted = formatCapacityMB(totalSizeMB);
+    setFormattedFileSize(formatted);
 
     const batch = batches.find(b => b.batchID === selectedBatch);
     if (!batch) {
@@ -210,7 +214,7 @@ export default function UploadScreen() {
                 <strong>{batch.label || "(No Label)"}</strong><br />
                 ID: {batch.batchID}<br />
                 Type: {batch.immutableFlag ? "Immutable" : "Mutable"}<br />
-                Capacity: {batch.capacity !== "Unknown" ? `${batch.capacity} MB` : "Calculating..."}<br />
+                Capacity: {batch.capacity !== "Unknown" ? batch.capacity : "Calculating..."}<br />
                 TTL: {batch.ttl !== "Unknown" ? formatTTL(batch.ttl) : "Calculating..."}
               </div>
             ))
@@ -230,7 +234,7 @@ export default function UploadScreen() {
           multiple={uploadMode === "folder"} 
           onChange={handleFileChange} 
         />
-
+        <p><strong>Upload Size:</strong> {formattedFileSize}</p>
 
         <label>Immutable:</label>
         <input 
