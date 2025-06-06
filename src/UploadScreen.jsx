@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Bee } from "@ethersphere/bee-js";
 import { keccak256 } from "js-sha3";
 import "./styles.css";
-import { calculateCapacity, fetchBatchTTL, formatTTL, } from "./BeeConnection";
+import { calculateCapacity, fetchBatchTTL, formatTTL, EFFECTIVE_VOLUME_MEDIUM_MB } from "./BeeConnection";
 import DilutionPopup from "./DilutionPopup";
 import Header from "./Header"; // ✅ Import Header
 import ThemeToggle from "./ThemeToggle"; // ✅ Import Toggle
@@ -70,6 +70,7 @@ export default function UploadScreen() {
             return {
               ...batch,
               capacity: calculateCapacity(batch.depth),
+              capacityMB: EFFECTIVE_VOLUME_MEDIUM_MB[batch.depth] || 0, // ✅ define it inline here
               ttl: ttl,
             };
           })
@@ -124,7 +125,7 @@ export default function UploadScreen() {
     console.log("✅ Total Upload Size:", totalSizeMB, "MB");
     setFileSizeMB(totalSizeMB);
 
-    const formatted = formatCapacityMB(totalSizeMB);
+    const formatted = `${totalSizeMB.toFixed(2)} MB`;
     setFormattedFileSize(formatted);
 
     const batch = batches.find(b => b.batchID === selectedBatch);
@@ -135,7 +136,7 @@ export default function UploadScreen() {
     }
     console.log("✅ Selected Batch Capacity:", batch.capacity, "MB");
 
-    if (totalSizeMB > parseFloat(batch.capacity)) {
+    if (totalSizeMB > batch.capacityMB) {
       setUploadStatus("❌ Total size exceeds batch capacity.");
       setShowDilutionPopup(true);
     } else {

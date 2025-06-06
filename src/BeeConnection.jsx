@@ -1,5 +1,10 @@
 // BeeConnection.jsx (Finalized - Direct API for TTL and Batch Data)
 import './styles.css';
+import { Bee } from '@ethersphere/bee-js';
+
+
+export const BLOCK_TIME_S = 5; // Gnosis block time
+export const BLOCKS_PER_DAY = Math.floor((24 * 60 * 60) / BLOCK_TIME_S); // 86400 / 5 = 17280
 
 
 // ✅ Corrected Function to Fetch Current Stamp Price
@@ -31,104 +36,111 @@ export function getBatchTTL(batch) {
   return batch.batchTTL || batch.ttl || batch.expires || undefined;
 }
 
-// Helper function to format TTL (Days, Hours, Minutes)
-export function calculateTTLDisplay(seconds) {
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
 
-  if (days > 0) {
-    return `${days} Days, ${hours} Hours`;
-  } else if (hours > 0) {
-    return `${hours} Hours, ${minutes} Minutes`;
-  } else {
-    return `${minutes} Minutes`;
+// ✅ Corrected Top-Up Cost Calculation (Accurate with Fixed Scaling)  // DilutionPopup.jsx
+/**
+ * Fetch the on-chain stamp amount (total PLUR) for a batch
+ */
+export async function getStampAmount(beeApiUrl, batchId) {
+  try {
+    const response = await fetch(`${beeApiUrl}/stamps/${batchId}`);
+    if (!response.ok) throw new Error("Failed to fetch stamp data");
+    const data = await response.json();
+    return Number(data.amount || 0);
+  } catch (err) {
+    console.error("❌ Error fetching stamp amount:", err);
+    return 0;
   }
 }
 
-// ✅ Theoretical Capacity Calculation Functions
-export const calculateTheoreticalCapacityChunks = (depth) => {
-  return Math.pow(2, depth); // 2^depth chunks (theoretical)
-};
 
-// ✅ For Debugging - Not Used in UI
-export const calculateTheoreticalCapacityMB = (depth) => {
-  const chunkSizeBytes = 4096; // Each chunk is 4096 bytes
-  const totalChunks = calculateTheoreticalCapacityChunks(depth);
-  const totalBytes = totalChunks * chunkSizeBytes;
-  return (totalBytes / (1024 * 1024)).toFixed(2); // Convert to MB, 2 decimal places
-};
+/**
+ * Calculate remaining TTL in seconds for a batch at its current depth
+ */
+export async function calculateRemainingTTL(beeApiUrl, batchDepth, batchId) {
+  const amount = await getStampAmount(beeApiUrl, batchId);
+  const pricePerChunkPerBlock = await fetchCurrentStampPrice(beeApiUrl);
+  const chunks = 2 ** batchDepth;
+  const BLOCK_TIME_S = 5;
+  const ttlRaw = (amount / (chunks * pricePerChunkPerBlock)) * BLOCK_TIME_S;
+  return Math.round(ttlRaw); // Round once only here, avoid underflow
+}
 
+  /**
+   * Calculate extra PLUR needed to reach a desired TTL after diluting
+   */
+  export async function calculateTopUp(
+    beeApiUrl,
+    currentDepth,
+    newDepth,
+    batchId,
+    desiredTTLSecs
+  ) {
+    const pricePerChunkPerBlock = await fetchCurrentStampPrice(beeApiUrl);
+    const chunksNew = BigInt(2 ** newDepth);
 
-// ✅ Corrected Top-Up Cost Calculation (Accurate with Fixed Scaling)
-export async function calculateTopupCost(beeApiUrl, batchID, newDepth, desiredTTL) {
+    // 🔍 Use integer math with BigInt to avoid floating-point errors
+    const priceBig = BigInt(pricePerChunkPerBlock);
+    const ttlBig = BigInt(desiredTTLSecs);
+    const blockTimeBig = BigInt(BLOCK_TIME_S);
+
+    const rawPerChunk = (priceBig * ttlBig + blockTimeBig - 1n) / blockTimeBig; // emulate ceil
+    const minPerChunk = priceBig * BigInt(BLOCKS_PER_DAY);
+    const finalPerChunk = rawPerChunk > minPerChunk ? rawPerChunk : minPerChunk;
+
+    const totalTopUp = finalPerChunk * chunksNew;
+    return Number(totalTopUp);
+  }
+
+  /**
+   * Unified helper to preview top-up + TTL after dilution
+   */
+  export async function getDilutionPreview(beeApiUrl, batch, newDepth, selectedTTL) {
   try {
-    const response = await fetch(`${beeApiUrl}/stamps/${batchID}`);
-    const data = await response.json();
-    const currentDepth = data.depth;
-    const existingAmountPerChunk = BigInt(data.amount); // PLUR per chunk as BigInt
-    const stampPrice = BigInt(await fetchCurrentStampPrice(beeApiUrl));
-    const blockTime = 5n; // Gnosis Chain block time (in seconds) as BigInt
-
-    console.log("🔎 Batch Details for Top-Up Calculation:", {
-      currentDepth,
-      existingAmountPerChunk: existingAmountPerChunk.toString(),
-    });
-
-    if (!stampPrice) {
-      console.error("❌ Error: Stamp price not fetched.");
-      return { totalPlur: "0", totalXBZZ: "0.0000", finalTTL: "0d 0h 0m", effectiveTTL: "0d 0h 0m" };
+    // ✅ Convert 'match' to actual TTL before using it
+    if (selectedTTL === "match") {
+      selectedTTL = await calculateRemainingTTL(beeApiUrl, batch.depth, batch.batchID);
     }
 
-    // ✅ Calculate the TTL to use (Only Fixed Options)
-    let finalTTL = BigInt(desiredTTL);
-    if (finalTTL <= 0) {
-      console.error("❌ Invalid TTL value:", finalTTL);
-      return { totalPlur: "0", totalXBZZ: "0.0000", finalTTL: "0d 0h 0m", effectiveTTL: "0d 0h 0m" };
+    const ttlRemaining = await calculateRemainingTTL(beeApiUrl, batch.depth, batch.batchID);
+    const chunksOld = 2 ** batch.depth;
+    const chunksNew = 2 ** newDepth;
+    const dilutedTTL = ttlRemaining * (chunksOld / chunksNew);
+    const estimatedTTL = formatTTL(dilutedTTL);
+
+    if (selectedTTL === 'none') {
+      return {
+        estimatedTTL,
+        totalPlur: '0',
+        totalXBZZ: '0.00000000'
+      };
     }
 
-    console.log("🔎 Calculating for Final TTL:", finalTTL.toString());
+    const desiredTTL = selectedTTL === 'match'
+      ? ttlRemaining
+      : parseInt(selectedTTL);
 
-    // ✅ Correct Calculation for Required Amount Per Chunk (Accurate)
-    const requiredAmountPerChunk = stampPrice * finalTTL;
-    console.log("🔎 Required Amount Per Chunk (PLUR):", requiredAmountPerChunk.toString());
+    const topupPlur = await calculateTopUp(
+      beeApiUrl,
+      batch.depth,
+      newDepth,
+      batch.batchID,
+      desiredTTL
+    );
 
-    // ✅ Calculate the total balance required for the new depth
-    const requiredTotalBalance = requiredAmountPerChunk * BigInt(Math.pow(2, newDepth));
-    const currentTotalBalance = existingAmountPerChunk * BigInt(Math.pow(2, currentDepth));
-    
-    // ✅ Top-Up Amount is the difference, but never negative
-    const topupAmount = requiredTotalBalance > currentTotalBalance 
-      ? requiredTotalBalance - currentTotalBalance 
-      : BigInt(0);
-    
-    console.log("🔎 Calculated Top-Up Amount (PLUR - Clean Integer):", topupAmount.toString());
-
-    // ✅ Convert PLUR to xBZZ for display
-    const totalXBZZ = (Number(topupAmount) / 1e16).toFixed(8);
-
-    // ✅ Calculate Effective TTL for Existing Stamps After Dilution
-    const existingTTL = data.ttl || 0;
-    const effectiveTTL = Math.floor(existingTTL * (Math.pow(2, currentDepth) / Math.pow(2, newDepth)));
-    console.log("🔎 Effective TTL After Dilution:", effectiveTTL);
-
-    // ✅ Calculate and format final TTL (for display)
-    const finalTTLDisplay = formatTTL(Number(finalTTL));
-    const effectiveTTLDisplay = formatTTL(effectiveTTL);
-
+    // Enforce strict per-chunk minimum
     return {
-      totalPlur: topupAmount.toString(),
-      totalXBZZ: totalXBZZ,
-      finalTTL: finalTTLDisplay,
-      effectiveTTL: effectiveTTLDisplay
+      estimatedTTL,
+      totalPlur: topupPlur.toString(),
+      totalXBZZ: (topupPlur / 1e16).toFixed(8)
     };
+
   } catch (err) {
-    console.error("❌ Error calculating top-up cost:", err);
+    console.error("❌ getDilutionPreview failed:", err);
     return {
+      estimatedTTL: "0d 0h 0m",
       totalPlur: "0",
-      totalXBZZ: "0.0000",
-      finalTTL: "0d 0h 0m",
-      effectiveTTL: "0d 0h 0m"
+      totalXBZZ: "0.00000000"
     };
   }
 }
@@ -196,7 +208,7 @@ export const fetchWalletBalance = async (beeApiUrl) => {
   };
 };
 
-// Fetch all postage batches using direct API (including TTL)
+// Fetch all postage batches using direct API (including TTL)  //ConnectionScreen
 export const fetchPostageBatches = async (beeApiUrl) => {
   const response = await fetch(`${beeApiUrl}/stamps`);
   if (!response.ok) throw new Error("Failed to fetch postage batches.");
@@ -232,12 +244,9 @@ export async function diluteBatch(beeApiUrl, batchID, newDepth, ttlTopup) {
     // ✅ Step 1: Top-Up to Maintain or Extend TTL (Optional)
     if (ttlTopup > 0) {
       console.log("🔎 Top-Up Amount (PLUR):", ttlTopup);
-      const topupResponse = await fetch(`${beeApiUrl}/stamps/${batchID}/topup`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ amount: ttlTopup })
+      const topupUrl = `${beeApiUrl}/stamps/${batchID}/topup/${Math.floor(ttlTopup)}`; // Pass in URL
+      const topupResponse = await fetch(topupUrl, {
+        method: "POST"
       });
 
       if (!topupResponse.ok) {
@@ -246,6 +255,7 @@ export async function diluteBatch(beeApiUrl, batchID, newDepth, ttlTopup) {
       }
       console.log("✅ Top-Up Successful.");
     }
+
 
     // ✅ Step 2: Correct API Call for Dilution (Direct PATCH)
     console.log("🔎 Diluting Batch:", batchID, "to New Depth:", newDepth);

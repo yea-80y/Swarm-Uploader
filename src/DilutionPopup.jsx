@@ -1,16 +1,41 @@
+// DilutionPopup.jsx — FINAL VERSION (Accurate TTL + PLUR Per Chunk + Comments)
+
 import React, { useState, useEffect } from "react";
 import "./styles.css";
-import { calculateTopupCost, formatTTL, EFFECTIVE_VOLUME_MEDIUM_MB } from "./BeeConnection"; // ✅ Import functions
+import {
+  BLOCK_TIME_S,
+  calculateCapacity,
+  formatTTL,
+  getDilutionPreview,
+  fetchWalletBalance,
+  fetchCurrentStampPrice,
+  EFFECTIVE_VOLUME_MEDIUM_MB
+} from "./BeeConnection";
+import { Bee } from "@ethersphere/bee-js";
 
 export default function DilutionPopup({ beeApiUrl, batch, onClose, onDiluteSuccess, fileSizeMB }) {
-  const [dilutionTTL, setDilutionTTL] = useState(31536000); // Default to 1 year (in seconds)
+  const [dilutionTTL, setDilutionTTL] = useState(31536000); // Default: 1 year in seconds
   const [topupCost, setTopupCost] = useState({ totalPlur: "0.00000000", totalXBZZ: "0.00000000" });
-  const [newDepth, setNewDepth] = useState(batch.depth); // Start with the current depth
-  const [status, setStatus] = useState(null);
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [estimatedFinalTTL, setEstimatedFinalTTL] = useState("0d 0h 0m");
+  const [newDepth, setNewDepth] = useState(batch.depth); // Auto-calculated if file exceeds capacity
+  const [status, setStatus] = useState(null); // User-visible status message
+  const [showConfirmation, setShowConfirmation] = useState(false); // Final confirmation prompt
+  const [estimatedFinalTTL, setEstimatedFinalTTL] = useState("0d 0h 0m"); // TTL shown to user
+  const [plurPerChunk, setPlurPerChunk] = useState(0); // Shown for debug/verifiability
 
-  // ✅ Automatically Calculate the Required Depth Based on File Size
+  // TTL options (dropdown menu)
+  const TTL_OPTIONS = [
+    { label: 'Keep existing TTL', value: 'match' },
+    { label: '24 hrs', value: 86400 },
+    { label: '1 week', value: 604800 },
+    { label: '1 month', value: 2592000 },
+    { label: '6 months', value: 15768000 },
+    { label: '1 year', value: 31536000 },
+    { label: 'No top-up', value: 'none' }
+  ];
+
+  /**
+   * 🔁 Auto-calculate new required depth based on file size and batch capacity
+   */
   useEffect(() => {
     let requiredDepth = batch.depth;
     while (fileSizeMB > EFFECTIVE_VOLUME_MEDIUM_MB[requiredDepth] && requiredDepth < 35) {
@@ -19,152 +44,194 @@ export default function DilutionPopup({ beeApiUrl, batch, onClose, onDiluteSucce
     setNewDepth(requiredDepth);
   }, [fileSizeMB, batch.depth]);
 
-  // ✅ Calculate Top-Up Cost Dynamically (Updated Logic)
-  useEffect(() => {
-    const fetchCost = async () => {
-      const cost = await calculateTopupCost(beeApiUrl, batch.batchID, newDepth, dilutionTTL);
-      
-     // ✅ Use BigInt for Accurate PLUR Calculation
+  /**
+   * 🔁 Fetch dilution preview cost, estimated TTL, and PLUR per chunk
+   */
+    useEffect(() => {
+  const fetchCost = async () => {
+    try {
+      const chunksNew = 2 ** newDepth;
+
+      let ttlForCost;
+      let finalTTLSeconds = 0;
+
+      // ✅ Get dilution cost preview as before
+      if (dilutionTTL === "match") {
+        ttlForCost = batch.ttl || 0;
+        finalTTLSeconds = ttlForCost;
+      } else if (dilutionTTL === "none") {
+        ttlForCost = "none"; // still needed to trigger PLUR = 0
+
+      // ✅ Estimate TTL after dilution using depth difference
       try {
-        const totalPlurBigInt = BigInt(cost.totalPlur);
-        cost.totalPlur = totalPlurBigInt.toString();
-        cost.totalXBZZ = (parseFloat(totalPlurBigInt.toString()) / 1e16).toFixed(8);
+        const currentTTL = batch.ttl || 0;
+        const depthChange = batch.depth - newDepth;
+        const estimatedSeconds = currentTTL * Math.pow(2, depthChange);
+        finalTTLSeconds = estimatedSeconds;
+
+        console.log("🐝 Debug: Calculated No-Top-Up TTL from depth change:");
+        console.log("🐝 Depth Change:", batch.depth, "→", newDepth);
+        console.log("🐝 Estimated Final TTL (s):", estimatedSeconds);
       } catch (err) {
-        console.error("❌ Error in PLUR Calculation:", err);
-        cost.totalPlur = "0";
-        cost.totalXBZZ = "0.00000000";
+        console.error("❌ Error estimating TTL after dilution:", err);
+        finalTTLSeconds = 0;
+      }
+    }
+ else {
+        ttlForCost = dilutionTTL;
+        finalTTLSeconds = (batch.ttl || 0) + dilutionTTL;
       }
 
-      console.log("🔎 Calculated Top-Up Cost:", cost);
+      const cost = await getDilutionPreview(beeApiUrl, batch, newDepth, ttlForCost);
       setTopupCost(cost);
 
-      // ✅ Calculate the Estimated TTL After Top-Up and Dilution
-      const existingTTL = batch.ttl || 0;
-      const finalTTLSeconds = dilutionTTL === "match" ? existingTTL : dilutionTTL + existingTTL;
-      setEstimatedFinalTTL(formatTTL(finalTTLSeconds));
-    };
-    fetchCost();
-  }, [beeApiUrl, batch, dilutionTTL, newDepth]);
-  
+      const stampPrice = await fetchCurrentStampPrice(beeApiUrl);
+      const perChunk = Number(BigInt(cost.totalPlur) / BigInt(chunksNew));
+      setPlurPerChunk(perChunk);
 
-
- // ✅ Handle Dilution Process (Triggered after Confirmation)
-const handleDiluteBatch = async () => {
-  setStatus("⏳ Checking Wallet Balance...");
-  setShowConfirmation(false);
-
+      // ✅ TTL display: manual calculation for 'none'
+      if (dilutionTTL === "none") {
   try {
-      // ✅ Fetch Wallet Balance
-      const walletResponse = await fetch(`${beeApiUrl}/wallet`);
-      if (!walletResponse.ok) {
-          setStatus("❌ Failed to fetch wallet balance. Please try again.");
-          return;
+    const stampRes = await fetch(`${beeApiUrl}/stamps/${batch.batchID}`);
+    const stampJson = await stampRes.json();
+    const stampAmount = parseFloat(stampJson.normalisedBalance || 0); // ✅ Corrected key
+    const stampPrice = await fetchCurrentStampPrice(beeApiUrl);
+
+    console.log("🐝 Debug: normalisedBalance =", stampAmount);
+    console.log("🐝 Debug: stampPrice =", stampPrice);
+    console.log("🐝 Debug: newDepth =", newDepth, " → chunksNew =", chunksNew);
+
+
+    if (stampAmount > 0 && stampPrice > 0) {
+      const rawTTL = (stampAmount / (chunksNew * stampPrice)) * BLOCK_TIME_S;
+      setEstimatedFinalTTL(formatTTL(rawTTL));
+    } else {
+      setEstimatedFinalTTL("0d 0h 0m");
+    }
+  } catch (err) {
+    console.error("❌ Failed to fetch batch for TTL:", err);
+    setEstimatedFinalTTL("Error calculating TTL");
+  }
+}
+ else {
+        setEstimatedFinalTTL(formatTTL(finalTTLSeconds));
       }
 
-      const walletData = await walletResponse.json();
-      const xBZZBalance = parseFloat(walletData.bzzBalance) / 1e16;
+    } catch (err) {
+      console.error("❌ Error in dilution preview:", err);
+      setTopupCost({ totalPlur: "0", totalXBZZ: "0.00000000" });
+      setEstimatedFinalTTL("0d 0h 0m");
+      setPlurPerChunk(0);
+    }
+  };
 
-      // ✅ Log the Wallet Balance
-      console.log("✅ Wallet Balance (xBZZ):", xBZZBalance);
-      console.log("🔎 Calculated Total PLUR for Top-Up:", topupCost.totalPlur);
+  fetchCost();
+}, [beeApiUrl, batch, newDepth, dilutionTTL]);
 
-      // ✅ Calculate Required xBZZ (No BigInt Division)
+  /**
+   * 🧾 Handle wallet check, top-up (if needed), and dilution
+   */
+  const handleDiluteBatch = async () => {
+    setStatus("⏳ Checking Wallet Balance...");
+    setShowConfirmation(false);
+
+    try {
+      const walletData = await fetchWalletBalance(beeApiUrl);
+      const xBZZBalance = parseFloat(walletData.bzzBalance.replace(" xBZZ", ""));
+
       const totalPlurFloat = parseFloat(topupCost.totalPlur);
-      const requiredXBZZ = (totalPlurFloat / 1e16).toFixed(8);
+      const requiredXBZZFloat = totalPlurFloat / 1e16;
 
-      // ✅ Log the Required xBZZ and Balance Check
-      console.log("🔎 Required xBZZ for Top-Up:", requiredXBZZ);
-      console.log("🔎 Available xBZZ Balance:", xBZZBalance.toFixed(8));
-
-      if (xBZZBalance < parseFloat(requiredXBZZ)) {
-          setStatus(`❌ Insufficient xBZZ Balance. Required: ${requiredXBZZ} xBZZ. Available: ${xBZZBalance.toFixed(8)} xBZZ.`);
-          console.error("❌ Insufficient xBZZ Balance.");
-          return;
+      // ✅ Check wallet balance before proceeding
+      if (xBZZBalance < requiredXBZZFloat) {
+        setStatus(`❌ Insufficient xBZZ. Required: ${requiredXBZZFloat.toFixed(8)} xBZZ. Available: ${xBZZBalance.toFixed(8)} xBZZ.`);
+        return;
       }
 
       setStatus("⏳ Processing Top-Up...");
 
-      // ✅ Use BigInt for Accurate Top-Up Amount
-      const topupAmount = BigInt(topupCost.totalPlur).toString();
-      console.log("🔎 Top-Up Amount (PLUR - BigInt):", topupAmount);
+      const topupAmount = Math.ceil(totalPlurFloat); // safest if you know it's already integer
 
-      // ✅ Log API Request URL for Top-Up
-      const topupUrl = `${beeApiUrl}/stamps/topup/${batch.batchID}/${topupAmount}`;
-      console.log("🔎 API URL for Top-Up:", topupUrl);
+      const bee = new Bee(beeApiUrl);
 
-      // ✅ Make Top-Up API Call
-      const topupResponse = await fetch(topupUrl, {
-          method: "PATCH",
-      });
-
-      if (!topupResponse.ok) {
-          const errorMessage = await topupResponse.text();
-          setStatus(`❌ Top-Up Failed: ${errorMessage}`);
-          console.error("❌ Top-Up Error:", errorMessage);
+      if (topupAmount > 0) {
+        try {
+          // 🐝 Send top-up using Bee JS
+          console.log("✅ Sending Top-Up:", topupAmount, "PLUR per chunk");
+          await bee.topUpBatch(batch.batchID, BigInt(topupAmount));
+          setStatus("✅ Top-Up Successful. Proceeding with Dilution...");
+        } catch (err) {
+          console.error("❌ Top-Up Error:", err);
+          setStatus("❌ Top-Up failed. " + (err.message || ""));
           return;
+        }
+      } else {
+        console.log("ℹ️ No top-up required. Proceeding with dilution only.");
       }
 
-      const topupResult = await topupResponse.json();
-      const topupTxHash = topupResult.transactionHash || "N/A";
-      setStatus(`✅ Top-Up Successful (Tx: ${topupTxHash}). Processing Dilution...`);
 
-      // ✅ Accurate Depth Value for Dilution
-      const depthValue = parseInt(newDepth).toString();
-      console.log("🔎 Dilution URL:", `${beeApiUrl}/stamps/dilute/${batch.batchID}/${depthValue}`);
-      console.log("🔎 Dilution Depth Passed in API:", depthValue);
-
-      // ✅ Make Dilution API Call
-      const dilutionResponse = await fetch(`${beeApiUrl}/stamps/dilute/${batch.batchID}/${depthValue}`, {
-          method: "PATCH",
-      });
-
-      if (!dilutionResponse.ok) {
-          const errorMessage = await dilutionResponse.text();
-          setStatus(`❌ Dilution Failed: ${errorMessage}`);
-          console.error("❌ Dilution Error:", errorMessage);
-          return;
+      try {
+        // 🐝 Dilute batch to new depth
+        await bee.diluteBatch(batch.batchID, parseInt(newDepth));
+        setStatus("✅ Dilution Successful.");
+        onDiluteSuccess(); // Notify parent
+      } catch (err) {
+        console.error("❌ Dilution Error:", err);
+        setStatus("❌ Dilution failed. " + (err.message || ""));
       }
 
-      const dilutionResult = await dilutionResponse.json();
-      const dilutionTxHash = dilutionResult.transactionHash || "N/A";
-      setStatus(`✅ Dilution Successful (Tx: ${dilutionTxHash}).`);
-      onDiluteSuccess();
-  } catch (error) {
-      console.error("❌ Error during Top-Up or Dilution:", error);
-      setStatus("❌ Error occurred during top-up or dilution. Please try again.");
-  }
-};
-
+    } catch (error) {
+      console.error("❌ Wallet or API Error:", error);
+      setStatus("❌ Error occurred during top-up or dilution.");
+    }
+  };
 
   return (
     <div className="dilution-popup-overlay">
       <div className="dilution-popup">
         <h2>Dilute Batch - Increase Capacity</h2>
-        <p>Current Batch: {batch.label} (Depth: {batch.depth})</p>
+        <p>Current Batch: {batch.label || "Unnamed"} (Depth: {batch.depth})</p>
         <p>Current TTL: {formatTTL(batch.ttl)}</p>
-        <p>Selected File Size: {fileSizeMB} MB</p>
+        <p>Selected File Size: {fileSizeMB.toFixed(2)} MB</p>
         <p>Calculated New Depth: {newDepth}</p>
 
+        {/* TTL Selection */}
         <label>Set New TTL:</label>
-        <select value={dilutionTTL} onChange={(e) => setDilutionTTL(parseInt(e.target.value))}>
-          <option value={93600}>26 Hours</option>
-          <option value={604800}>1 Week</option>
-          <option value={2592000}>1 Month</option>
-          <option value={31536000}>1 Year</option>
+        <select
+          value={dilutionTTL}
+          onChange={(e) =>
+            setDilutionTTL(
+              e.target.value === 'none' || e.target.value === 'match'
+                ? e.target.value
+                : parseInt(e.target.value)
+            )
+          }
+        >
+          {TTL_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
 
+        {/* Summary Section */}
         <p>Top-Up Cost: {parseFloat(topupCost.totalPlur).toLocaleString()} PLUR ({topupCost.totalXBZZ} xBZZ)</p>
+        <p>PLUR Per Chunk: {plurPerChunk}</p>
         <p>Estimated TTL After Top-Up and Dilution: {estimatedFinalTTL}</p>
+
+        {/* Action Buttons */}
         <div className="popup-actions">
           <button onClick={() => setShowConfirmation(true)} className="btn btn-primary">Confirm Dilution</button>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
         </div>
 
+        {/* Final Confirmation */}
         {showConfirmation && (
           <div className="confirmation-popup-overlay">
             <div className="confirmation-popup">
               <h3>Confirm Top-Up and Dilution</h3>
               <p>Total Top-Up Cost: {parseFloat(topupCost.totalPlur).toLocaleString()} PLUR ({topupCost.totalXBZZ} xBZZ)</p>
+              <p>PLUR Per Chunk: {plurPerChunk}</p>
               <p>New Depth: {newDepth}</p>
               <div className="popup-actions">
                 <button onClick={handleDiluteBatch} className="btn btn-primary">Confirm</button>
@@ -174,6 +241,7 @@ const handleDiluteBatch = async () => {
           </div>
         )}
 
+        {/* Status Feedback */}
         {status && <p className="status-message">{status}</p>}
       </div>
     </div>

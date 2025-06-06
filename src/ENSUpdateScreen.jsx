@@ -88,14 +88,16 @@ const updateENS = async () => {
     // 1) Get signer from provider
     const signer = await provider.getSigner();
 
-    // 2) Read‐only ENS registry to find your resolver
+    // 2) Read‐only ENS registry to find or set your resolver
     const registry = new ethers.Contract(
       "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
       [
-        "function resolver(bytes32 node) view returns (address)"
+        "function resolver(bytes32 node) view returns (address)",
+        "function setResolver(bytes32 node, address resolver) external"
       ],
       provider
     );
+
 
     // 3) Compute ENS namehash
     const node = ethers.namehash(ensName.trim().toLowerCase());
