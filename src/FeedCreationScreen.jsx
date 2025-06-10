@@ -1,11 +1,21 @@
 // FeedCreationScreen.jsx — Bee Node Wallet Version
 import React, { useState } from "react"
 import { keccak256 } from "js-sha3"
-import { Bee } from "@ethersphere/bee-js"
+import { Bee, Topic } from "@ethersphere/bee-js"
 import { useNavigate } from "react-router-dom"
 import Header from "./Header"
 import ThemeToggle from "./ThemeToggle"
 import "./styles.css"
+
+function hexToBytes(hex) {
+  hex = hex.replace(/^0x/, '')
+  if (hex.length !== 64) throw new Error('Topic hex must be 32 bytes (64 hex chars)')
+  const bytes = new Uint8Array(32)
+  for (let i = 0; i < 64; i += 2) {
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16)
+  }
+  return bytes
+}
 
 export default function FeedCreationScreen() {
   const [feedName, setFeedName] = useState("")
@@ -18,36 +28,56 @@ export default function FeedCreationScreen() {
 
   const createFeed = async () => {
     if (!feedName.trim()) {
-      setStatus("❌ Please enter a feed name.")
-      return
+        setStatus("❌ Please enter a feed name.")
+        return
     }
 
-    const topicHex = "0x" + keccak256(feedName.trim())
-    setTopic(topicHex)
+    // keccak256 returns a 64-char hex string (32 bytes)
+    let topicHex = keccak256(feedName.trim())
+    // Ensure it is 64 chars (32 bytes)
+    if (topicHex.length !== 64) {
+        setStatus("❌ Topic hash is not 32 bytes!")
+        return
+    }
+    topicHex = "0x" + topicHex
+    setTopic(topicHex.trim())
     console.log("✅ Feed Topic:", topicHex)
     setFeedCreated(true)
     setStatus("✅ Feed topic created. You can now update the feed.")
-  }
+    }
 
   const updateFeed = async () => {
     if (!manualHash || !topic) {
-      setStatus("❌ Missing topic or hash.")
-      return
+        setStatus("❌ Missing topic or hash.")
+        return
     }
 
     try {
-      const bee = new Bee(beeApiUrl)
-      const writer = bee.makeFeedWriter(0x00, topic)
+        const bee = new Bee(beeApiUrl)
 
-      // ✅ This uses Bee node's internal wallet to sign
-      await bee.uploadFeedUpdate(writer, undefined, manualHash.trim())
+        // Debug: print topic
+        console.log("Topic string:", topic)
 
-      setStatus("✅ Feed updated with provided Swarm hash.")
+        // Convert topic hex string to Bytes<32>
+        const topicBytes = hexToBytes(topic)
+
+        // Debug: print topicBytes
+        console.log("Topic bytes length:", topicBytes.length, topicBytes)
+
+        console.log("Topic class:", Topic)
+
+        // Make feed writer
+        const writer = bee.makeFeedWriter(0x00, new Topic(topicBytes))
+
+
+        await bee.uploadFeedUpdate(writer, undefined, manualHash.trim())
+
+        setStatus("✅ Feed updated with provided Swarm hash.")
     } catch (err) {
-      console.error("❌ Feed update error:", err)
-      setStatus("❌ Failed to update feed: " + (err.message || "Unknown error"))
+        console.error("❌ Feed update error:", err)
+        setStatus("❌ Failed to update feed: " + (err.message || "Unknown error"))
     }
-  }
+    }
 
   const handleProceed = () => {
     navigate("/upload", {
