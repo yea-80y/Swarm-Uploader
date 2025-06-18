@@ -1,89 +1,99 @@
-// FeedCreationScreen.jsx — Bee Node Wallet Version
+// FeedCreationScreen.jsx — Final Version with Dynamic Bee URL + Topic Fix
 import React, { useState } from "react"
-import { keccak256 } from "js-sha3"
 import { Bee, Topic } from "@ethersphere/bee-js"
-import { useNavigate } from "react-router-dom"
+import { keccak256 } from "js-sha3"
+import { useNavigate, useLocation } from "react-router-dom"
 import Header from "./Header"
 import ThemeToggle from "./ThemeToggle"
 import "./styles.css"
 
-function hexToBytes(hex) {
-  hex = hex.replace(/^0x/, '')
-  if (hex.length !== 64) throw new Error('Topic hex must be 32 bytes (64 hex chars)')
-  const bytes = new Uint8Array(32)
-  for (let i = 0; i < 64; i += 2) {
-    bytes[i / 2] = parseInt(hex.substr(i, 2), 16)
-  }
-  return bytes
-}
-
 export default function FeedCreationScreen() {
   const [feedName, setFeedName] = useState("")
-  const [topic, setTopic] = useState("")
+  const [topicObj, setTopicObj] = useState(null)
+  const [owner, setOwner] = useState("")
+  const [feedHash, setFeedHash] = useState("")
+  const [currentContent, setCurrentContent] = useState("")
   const [manualHash, setManualHash] = useState("")
   const [status, setStatus] = useState("")
   const [feedCreated, setFeedCreated] = useState(false)
-  const beeApiUrl = "http://bee.swarm.public.dappnode:1633"
+
   const navigate = useNavigate()
+  const location = useLocation()
+  const beeApiUrl = location.state?.beeApiUrl || "http://bee.swarm.public.dappnode:1633"
 
   const createFeed = async () => {
     if (!feedName.trim()) {
-        setStatus("❌ Please enter a feed name.")
-        return
-    }
-
-    // keccak256 returns a 64-char hex string (32 bytes)
-    let topicHex = keccak256(feedName.trim())
-    // Ensure it is 64 chars (32 bytes)
-    if (topicHex.length !== 64) {
-        setStatus("❌ Topic hash is not 32 bytes!")
-        return
-    }
-    topicHex = "0x" + topicHex
-    setTopic(topicHex.trim())
-    console.log("✅ Feed Topic:", topicHex)
-    setFeedCreated(true)
-    setStatus("✅ Feed topic created. You can now update the feed.")
-    }
-
-  const updateFeed = async () => {
-    if (!manualHash || !topic) {
-        setStatus("❌ Missing topic or hash.")
-        return
+      setStatus("❌ Please enter a feed name.")
+      return
     }
 
     try {
-        const bee = new Bee(beeApiUrl)
+      const bee = new Bee(beeApiUrl)
+      const topicHex = "0x" + keccak256(feedName.trim())
+      const topic = new Topic(topicHex)
+      setTopicObj(topic)
 
-        // Debug: print topic
-        console.log("Topic string:", topic)
+      const addressRes = await fetch(`${beeApiUrl}/addresses`)
+      const { ethereum: wallet } = await addressRes.json()
+      setOwner(wallet)
 
-        // Convert topic hex string to Bytes<32>
-        const topicBytes = hexToBytes(topic)
+      // Gracefully handle empty feeds
+      let reference = ""
+      try {
+        const manifestRes = await fetch(`${beeApiUrl}/feeds/${wallet}/${topic.toHex()}/manifest`)
+        const manifestData = await manifestRes.json()
+        reference = manifestData.reference
+        setFeedHash(reference)
+      } catch {
+        reference = "(not yet created)"
+        setFeedHash(reference)
+      }
 
-        // Debug: print topicBytes
-        console.log("Topic bytes length:", topicBytes.length, topicBytes)
+      try {
+        const reader = bee.makeFeedReader(0, topic, owner)
+        const { reference: current } = await reader.download()
+        setCurrentContent(current)
+      } catch {
+        setCurrentContent("")
+      }
 
-        console.log("Topic class:", Topic)
-
-        // Make feed writer
-        const writer = bee.makeFeedWriter(0x00, new Topic(topicBytes))
-
-
-        await bee.uploadFeedUpdate(writer, undefined, manualHash.trim())
-
-        setStatus("✅ Feed updated with provided Swarm hash.")
+      setFeedCreated(true)
+      setStatus(`✅ Feed initialized.`)
     } catch (err) {
-        console.error("❌ Feed update error:", err)
-        setStatus("❌ Failed to update feed: " + (err.message || "Unknown error"))
+      console.error("❌ Feed creation failed:", err)
+      setStatus("❌ Failed to create feed: " + (err.message || "Unknown error"))
     }
+  }
+
+  const updateFeed = async () => {
+    if (!manualHash.trim() || !feedName.trim() || !owner) {
+      setStatus("❌ Missing feed name, owner, or Swarm hash.")
+      return
     }
+
+    try {
+      const bee = new Bee(beeApiUrl)
+
+      const topicHex = "0x" + keccak256(feedName.trim())
+      const topic = new Topic(topicHex) // ✅ always recreate topic here
+
+      const writer = bee.makeFeedWriter(0, topic, owner)
+      await bee.uploadFeedUpdate(writer, undefined, manualHash.trim())
+
+      setCurrentContent(manualHash.trim())
+      setStatus("✅ Feed updated to point to: " + manualHash.trim())
+    } catch (err) {
+      console.error("❌ Feed update error:", err)
+      setStatus("❌ Failed to update feed: " + (err.message || "Unknown error"))
+    }
+  }
+
 
   const handleProceed = () => {
     navigate("/upload", {
       state: {
         beeApiUrl,
-        topic,
+        topic: topicObj?.toHex() ?? "",
         feedName
       }
     })
@@ -106,21 +116,37 @@ export default function FeedCreationScreen() {
           onChange={(e) => setFeedName(e.target.value)}
         />
 
-        <button onClick={createFeed} className="btn btn-primary">Generate Feed</button>
+        <button onClick={createFeed} className="btn btn-primary">
+          Generate Feed
+        </button>
 
         {feedCreated && (
           <>
-            <p><strong>Feed Topic:</strong> {topic}</p>
+            <p><strong>Feed Hash (Static, Shareable):</strong><br />{feedHash}</p>
+            {currentContent && (
+              <p><strong>Currently Points To:</strong><br />{currentContent}</p>
+            )}
 
             <input
               type="text"
-              placeholder="Optional: Paste Swarm hash to update feed"
+              placeholder="Paste new Swarm hash to update feed"
               value={manualHash}
               onChange={(e) => setManualHash(e.target.value)}
             />
-            <button onClick={updateFeed} className="btn btn-secondary">Update Feed with Hash</button>
-            <button onClick={handleProceed} className="btn btn-primary">Proceed</button>
+            <button
+              onClick={updateFeed}
+              className="btn btn-secondary"
+              disabled={!manualHash.trim()}
+            >
+              Update Feed with Hash
+            </button>
           </>
+        )}
+
+        {feedCreated && (
+          <button onClick={handleProceed} className="btn btn-primary">
+            Proceed
+          </button>
         )}
 
         {status && <p className="status-msg">{status}</p>}

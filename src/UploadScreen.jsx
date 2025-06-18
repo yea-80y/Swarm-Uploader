@@ -36,7 +36,7 @@ const timeout = (promise, ms) => {
 export default function UploadScreen() {
   const navigate = useNavigate();
   const { state } = useLocation();
-  const beeApiUrl = state?.beeApiUrl;
+  const beeApiUrl = location.state?.beeApiUrl || "http://bee.swarm.public.dappnode:1633"
   const wallet = state?.wallet;
 
   const [batches, setBatches] = useState([]);
