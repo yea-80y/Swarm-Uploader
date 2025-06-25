@@ -2,7 +2,7 @@
 import React, { useState } from "react"
 import { Bee, Topic } from "@ethersphere/bee-js" // ✅ Core Swarm utilities
 import { keccak256 } from "js-sha3"
-import { getBytes, isHexString } from "ethers" // ✅ Correct Ethers v6 import
+import { getBytes, isHexString, Wallet } from "ethers" // ✅ Correct Ethers v6 import
 import { useNavigate } from "react-router-dom"
 import Header from "./Header"
 import ThemeToggle from "./ThemeToggle"
@@ -42,13 +42,14 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
       const topicHex = "0x" + keccak256(feedName.trim())
       setTopicObj(topicHex)
 
-      // ✅ Retrieve Bee node wallet address (this is the feed owner)
-      const addressRes = await fetch(`${beeApiUrl}/addresses`)
-      const { ethereum: wallet } = await addressRes.json()
-      setOwner(wallet)
+      // ✅ Updated - Retrieve v3 address (this is the feed owner)
+      const signerWallet = new Wallet(signer)
+      const signerAddress = await signerWallet.getAddress()
+
+      setOwner(signerAddress) // ✅ Store the V3 signer address in state
 
       // Set Static Feed Hash for Display 
-      const ownerBytes = getBytes(wallet)
+      const ownerBytes = getBytes(signerAddress)
       const topicBytes = getBytes(topicHex)
 
       const combined = new Uint8Array(ownerBytes.length + topicBytes.length)
@@ -62,7 +63,7 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
       // ✅ Try to get the feed manifest (if it's already published)
       let reference = ""
       try {
-        const manifestRes = await fetch(`${beeApiUrl}/feeds/${wallet}/${topicHex.slice(2)}/manifest`)
+        const manifestRes = await fetch(`${beeApiUrl}/feeds/${signerAddress}/${topicHex.slice(2)}/manifest`)
         const manifestData = await manifestRes.json()
         reference = manifestData.reference
         setFeedHash(reference)
@@ -74,7 +75,7 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
       // ✅ Try to fetch the current content of the feed (latest update)
       try {
         const topicStr = topicHex.slice(2)
-        const reader = bee.makeFeedReader(0, topicStr, wallet)
+        const reader = bee.makeFeedReader(0, topicStr, signer)
         const current = await reader.downloadData()
         setCurrentContent(current)
       } catch {
@@ -114,7 +115,15 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
       const topic = Topic.fromString(feedName.trim())
       const writer = bee.makeFeedWriter(topic, signer)
 
+      console.log("🔄 Preparing feed update with parameters:")
+      console.log("📦 Batch ID:", batchId.trim())
+      console.log("📂 Swarm Hash (Reference):", manualHash.trim())
+      console.log("📝 Topic:", feedName.trim())
+      console.log("🧾 V3 Signer (Private Key):", signer)
+
       await writer.upload(batchId.trim(), manualHash.trim())
+
+      console.log("✅ Feed update successfully sent to Bee node")
 
       setCurrentContent(manualHash.trim())
       setStatus("✅ Feed updated to point to: " + manualHash.trim())
