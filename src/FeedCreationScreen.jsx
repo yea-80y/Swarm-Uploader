@@ -1,12 +1,17 @@
 // FeedCreationScreen.jsx — Secure Feed Creation + Signing + Batch ID Support
 import React, { useState } from "react"
-import { Bee } from "@ethersphere/bee-js" // ✅ Core Swarm utilities
+import { Bee, Topic } from "@ethersphere/bee-js" // ✅ Core Swarm utilities
 import { keccak256 } from "js-sha3"
 import { getBytes, isHexString } from "ethers" // ✅ Correct Ethers v6 import
 import { useNavigate } from "react-router-dom"
 import Header from "./Header"
 import ThemeToggle from "./ThemeToggle"
 import "./styles.css"
+
+// ✅ Helper to drop '0x' from feed hash
+function removeHexPrefix(hash) {
+  return hash.startsWith('0x') ? hash.slice(2) : hash
+}
 
 export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
   // ✅ State variables for managing feed setup and update flow
@@ -19,6 +24,7 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
   const [batchId, setBatchId] = useState("") // ✅ Manually entered batch ID
   const [status, setStatus] = useState("")
   const [feedCreated, setFeedCreated] = useState(false)
+  const [staticFeedHash, setStaticFeedHash] = useState("") // ✅ NEW: Static Feed Hash
 
   const navigate = useNavigate()
 
@@ -40,6 +46,18 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
       const addressRes = await fetch(`${beeApiUrl}/addresses`)
       const { ethereum: wallet } = await addressRes.json()
       setOwner(wallet)
+
+      // Set Static Feed Hash for Display 
+      const ownerBytes = getBytes(wallet)
+      const topicBytes = getBytes(topicHex)
+
+      const combined = new Uint8Array(ownerBytes.length + topicBytes.length)
+      combined.set(ownerBytes)
+      combined.set(topicBytes, ownerBytes.length)
+
+      const staticFeedHash = "0x" + keccak256(combined)
+
+      setStaticFeedHash(staticFeedHash)
 
       // ✅ Try to get the feed manifest (if it's already published)
       let reference = ""
@@ -90,12 +108,13 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
       }
 
       // ✅ Correct format: pass bytes to makeFeedWriter
-      const topicBytes = getBytes(topicHex)
+      
 
       // ✅ Writer signs and uploads the feed update
-      const writer = bee.makeFeedWriter(topicBytes, signer)
+      const topic = Topic.fromString(feedName.trim())
+      const writer = bee.makeFeedWriter(topic, signer)
 
-      await writer.uploadFeedUpdate(manualHash.trim(), batchId.trim())
+      await writer.upload(batchId.trim(), manualHash.trim())
 
       setCurrentContent(manualHash.trim())
       setStatus("✅ Feed updated to point to: " + manualHash.trim())
@@ -143,7 +162,8 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
 
         {feedCreated && (
           <>
-            <p><strong>Feed Hash (Static, Shareable):</strong><br />{feedHash}</p>
+            <p><strong>Feed Hash (Static, Shareable):</strong><br />{removeHexPrefix(staticFeedHash)}</p>
+            <p><strong>Feed Status:</strong><br />{feedHash}</p>
             {currentContent && (
               <p><strong>Currently Points To:</strong><br />{currentContent}</p>
             )}
