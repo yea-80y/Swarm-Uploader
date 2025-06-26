@@ -39,8 +39,8 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
       const bee = new Bee(beeApiUrl)
 
       // ✅ Topic = hash of feed name → used as a unique feed identifier
-      const topicHex = "0x" + keccak256(feedName.trim())
-      setTopicObj(topicHex)
+      const topicInstance = Topic.fromString(feedName.trim())
+      setTopicObj(topicInstance)
 
       // ✅ Updated - Retrieve v3 address (this is the feed owner)
       const signerWallet = new Wallet(signer)
@@ -50,7 +50,7 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
 
       // Set Static Feed Hash for Display 
       const ownerBytes = getBytes(signerAddress)
-      const topicBytes = getBytes(topicHex)
+      const topicBytes = topicInstance
 
       const combined = new Uint8Array(ownerBytes.length + topicBytes.length)
       combined.set(ownerBytes)
@@ -63,7 +63,7 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
       // ✅ Try to get the feed manifest (if it's already published)
       let reference = ""
       try {
-        const manifestRes = await fetch(`${beeApiUrl}/feeds/${signerAddress}/${topicHex.slice(2)}/manifest`)
+        const manifestRes = await fetch(`${beeApiUrl}/feeds/${signerAddress}/${removeHexPrefix(topicInstance.toHexString())}/manifest`)
         const manifestData = await manifestRes.json()
         reference = manifestData.reference
         setFeedHash(reference)
@@ -74,8 +74,7 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
 
       // ✅ Try to fetch the current content of the feed (latest update)
       try {
-        const topicStr = topicHex.slice(2)
-        const reader = bee.makeFeedReader(0, topicStr, signer)
+        const reader = bee.makeFeedReader(topicObj, signerAddress)
         const current = await reader.downloadData()
         setCurrentContent(current)
       } catch {
@@ -99,14 +98,6 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
 
     try {
       const bee = new Bee(beeApiUrl)
-
-      // ✅ Derive the same topic again for update
-      const topicHex = "0x" + keccak256(feedName.trim())
-
-      if (!isHexString(topicHex, 32)) {
-        setStatus("❌ Topic hex string is invalid or not 32 bytes.")
-        return
-      }
 
       // ✅ Correct format: pass bytes to makeFeedWriter
       
@@ -138,7 +129,7 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
     navigate("/upload", {
       state: {
         beeApiUrl,
-        topic: topicObj ? topicObj.slice(2) : "",
+        staticFeedHash: removeHexPrefix(staticFeedHash),
         feedName
       }
     })
