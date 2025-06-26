@@ -1,8 +1,7 @@
 // FeedCreationScreen.jsx — Secure Feed Creation + Signing + Batch ID Support
 import React, { useState } from "react"
 import { Bee, Topic } from "@ethersphere/bee-js" // ✅ Core Swarm utilities
-import { keccak256 } from "js-sha3"
-import { getBytes, isHexString, Wallet } from "ethers" // ✅ Correct Ethers v6 import
+import { Wallet } from "ethers" // ✅ Correct Ethers v6 import
 import { useNavigate } from "react-router-dom"
 import Header from "./Header"
 import ThemeToggle from "./ThemeToggle"
@@ -16,7 +15,6 @@ function removeHexPrefix(hash) {
 export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
   // ✅ State variables for managing feed setup and update flow
   const [feedName, setFeedName] = useState("")
-  const [topicObj, setTopicObj] = useState(null)
   const [owner, setOwner] = useState("") // Ethereum address from Bee node
   const [feedHash, setFeedHash] = useState("") // Feed reference (may not exist yet)
   const [currentContent, setCurrentContent] = useState("") // Current content pointer
@@ -24,7 +22,6 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
   const [batchId, setBatchId] = useState("") // ✅ Manually entered batch ID
   const [status, setStatus] = useState("")
   const [feedCreated, setFeedCreated] = useState(false)
-  const [staticFeedHash, setStaticFeedHash] = useState("") // ✅ NEW: Static Feed Hash
 
   const navigate = useNavigate()
 
@@ -35,12 +32,15 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
       return
     }
 
+    if (!batchId.trim()) {
+      setStatus("❌ Please enter a Postage Batch ID.")
+      return
+    }
+
     try {
       const bee = new Bee(beeApiUrl)
 
       // ✅ Topic = hash of feed name → used as a unique feed identifier
-      const topicInstance = Topic.fromString(feedName.trim())
-      setTopicObj(topicInstance)
 
       // ✅ Updated - Retrieve v3 address (this is the feed owner)
       const signerWallet = new Wallet(signer)
@@ -48,33 +48,25 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
 
       setOwner(signerAddress) // ✅ Store the V3 signer address in state
 
+      const topic = Topic.fromString(feedName.trim())
+
+      const rawBatch = batchId.trim()
+      const batchIdHex = rawBatch.startsWith('0x') ? rawBatch : '0x' + rawBatch
+
+      const manifestResponse = await bee.createFeedManifest(batchIdHex, topic, signerAddress)
+
+      console.log("📦 manifestResponse:", manifestResponse)
+      console.log("📦 reference:", manifestResponse.reference)
+
+      // This is the Swarm hash 
+      setFeedHash(manifestResponse.toHex())
+
       // Set Static Feed Hash for Display 
-      const ownerBytes = getBytes(signerAddress)
-      const topicBytes = topicInstance
-
-      const combined = new Uint8Array(ownerBytes.length + topicBytes.length)
-      combined.set(ownerBytes)
-      combined.set(topicBytes, ownerBytes.length)
-
-      const staticFeedHash = "0x" + keccak256(combined)
-
-      setStaticFeedHash(staticFeedHash)
-
-      // ✅ Try to get the feed manifest (if it's already published)
-      let reference = ""
-      try {
-        const manifestRes = await fetch(`${beeApiUrl}/feeds/${signerAddress}/${removeHexPrefix(topicInstance.toHexString())}/manifest`)
-        const manifestData = await manifestRes.json()
-        reference = manifestData.reference
-        setFeedHash(reference)
-      } catch {
-        reference = "(not yet created)"
-        setFeedHash(reference)
-      }
+      
 
       // ✅ Try to fetch the current content of the feed (latest update)
       try {
-        const reader = bee.makeFeedReader(topicObj, signerAddress)
+        const reader = bee.makeFeedReader(topic, signerAddress)
         const current = await reader.downloadData()
         setCurrentContent(current)
       } catch {
@@ -104,6 +96,9 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
 
       // ✅ Writer signs and uploads the feed update
       const topic = Topic.fromString(feedName.trim())
+      const rawBatch = batchId.trim()
+      const batchIdHex = rawBatch.startsWith('0x') ? rawBatch : '0x' + rawBatch
+
       const writer = bee.makeFeedWriter(topic, signer)
 
       console.log("🔄 Preparing feed update with parameters:")
@@ -112,7 +107,7 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
       console.log("📝 Topic:", feedName.trim())
       console.log("🧾 V3 Signer (Private Key):", signer)
 
-      await writer.upload(batchId.trim(), manualHash.trim())
+      await writer.upload(batchIdHex, manualHash.trim())
 
       console.log("✅ Feed update successfully sent to Bee node")
 
@@ -129,7 +124,7 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
     navigate("/upload", {
       state: {
         beeApiUrl,
-        staticFeedHash: removeHexPrefix(staticFeedHash),
+        feedHash,
         feedName
       }
     })
@@ -156,13 +151,21 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
           onChange={(e) => setFeedName(e.target.value)}
         />
 
+        <input
+          type="text"
+          placeholder="Enter Postage Batch ID"
+          value={batchId}
+          onChange={(e) => setBatchId(e.target.value)}
+          style={{ marginTop: "10px" }}
+        />
+
         <button onClick={createFeed} className="btn btn-primary">
           Generate Feed
         </button>
 
         {feedCreated && (
           <>
-            <p><strong>Feed Hash (Static, Shareable):</strong><br />{removeHexPrefix(staticFeedHash)}</p>
+            <p><strong>Feed Hash (Shareable):</strong><br />{feedHash}</p>
             <p><strong>Feed Status:</strong><br />{feedHash}</p>
             {currentContent && (
               <p><strong>Currently Points To:</strong><br />{currentContent}</p>
