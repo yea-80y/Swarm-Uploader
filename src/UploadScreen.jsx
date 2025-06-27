@@ -279,7 +279,6 @@ export default function UploadScreen() {
           </>
         )}
 
-
         {showDilutionPopup && (
           <DilutionPopup 
             beeApiUrl={beeApiUrl} 
