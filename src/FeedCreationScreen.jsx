@@ -12,13 +12,13 @@ function removeHexPrefix(hash) {
   return hash.startsWith('0x') ? hash.slice(2) : hash
 }
 
-export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
+export default function FeedCreationScreen({ signer, beeApiUrl, onReset, swarmHash }) {
   // ✅ State variables for managing feed setup and update flow
   const [feedName, setFeedName] = useState("")
   const [owner, setOwner] = useState("") // Ethereum address from Bee node
   const [feedHash, setFeedHash] = useState("") // Feed reference (may not exist yet)
   const [currentContent, setCurrentContent] = useState("") // Current content pointer
-  const [manualHash, setManualHash] = useState("") // User-entered Swarm hash
+  const [manualHash, setManualHash] = useState(swarmHash || "") // User-entered Swarm hash
   const [batchId, setBatchId] = useState("") // ✅ Manually entered batch ID
   const [status, setStatus] = useState("")
   const [feedCreated, setFeedCreated] = useState(false)
@@ -119,14 +119,10 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset }) {
     }
   }
 
-  // ✅ Used to continue to upload page
+  // ✅ Used to continue to ENS page
   const handleProceed = () => {
-    navigate("/upload", {
-      state: {
-        beeApiUrl,
-        feedHash,
-        feedName
-      }
+    navigate("/ens-update", {
+      state: { swarmHash: feedHash }
     })
   }
 

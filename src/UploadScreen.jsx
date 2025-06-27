@@ -269,6 +269,13 @@ export default function UploadScreen() {
             >
               Update ENS Content Hash
             </button>
+
+            <button
+              className="btn btn-secondary"
+              onClick={() => navigate("/create-feed", { state: { beeApiUrl, swarmHash } })}
+            >
+              Create / Add to Feed
+            </button>
           </>
         )}
 
