@@ -4,9 +4,9 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Bee } from "@ethersphere/bee-js";
 import { keccak256 } from "js-sha3";
 import "./styles.css";
-import { calculateCapacity, fetchBatchTTL, formatTTL, EFFECTIVE_VOLUME_MEDIUM_MB } from "./BeeConnection";
+import { calculateCapacity, fetchBatchTTL, formatTTL, EFFECTIVE_VOLUME_MEDIUM_MB } from "../utils/BeeConnection";
 import DilutionPopup from "./DilutionPopup";
-import Header from "./Header"; // ✅ Import Header
+import Header from "../components/Header"; // ✅ Import Header
 import ThemeToggle from "./ThemeToggle"; // ✅ Import Toggle
 
 // ✅ Function to Play Bee Sound

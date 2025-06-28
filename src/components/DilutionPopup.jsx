@@ -10,7 +10,7 @@ import {
   fetchWalletBalance,
   fetchCurrentStampPrice,
   EFFECTIVE_VOLUME_MEDIUM_MB
-} from "./BeeConnection";
+} from "../utils/BeeConnection";
 import { Bee } from "@ethersphere/bee-js";
 
 export default function DilutionPopup({ beeApiUrl, batch, onClose, onDiluteSuccess, fileSizeMB }) {

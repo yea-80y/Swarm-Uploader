@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { encode } from "@ensdomains/content-hash";
 import { useNavigate, useLocation } from "react-router-dom";
-import Header from "./Header"; // ✅ Import Header
+import Header from "../components/Header"; // ✅ Import Header
 import "./styles.css";
 import ThemeToggle from "./ThemeToggle"; // ✅ Import Toggle
 

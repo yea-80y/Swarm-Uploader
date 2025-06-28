@@ -3,8 +3,8 @@ import React, { useState } from "react"
 import { Bee, Topic } from "@ethersphere/bee-js" // ✅ Core Swarm utilities
 import { Wallet } from "ethers" // ✅ Correct Ethers v6 import
 import { useNavigate } from "react-router-dom"
-import Header from "./Header"
-import ThemeToggle from "./ThemeToggle"
+import Header from "../components/Header"
+import ThemeToggle from "../components/ThemeToggle"
 import "./styles.css"
 
 // ✅ Helper to drop '0x' from feed hash

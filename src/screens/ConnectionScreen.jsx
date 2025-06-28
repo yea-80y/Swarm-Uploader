@@ -1,8 +1,8 @@
 // ConnectionScreen.jsx (Fully Corrected - Two Navigation Buttons)
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchWalletBalance, fetchPostageBatches } from "./BeeConnection";
-import Header from "./Header"; // ✅ Import Header
+import { fetchWalletBalance, fetchPostageBatches } from "../utils/BeeConnection";
+import Header from "../components/Header"; // ✅ Import Header
 import "./styles.css";
 import ThemeToggle from "./ThemeToggle"; // ✅ Import Toggle
 
