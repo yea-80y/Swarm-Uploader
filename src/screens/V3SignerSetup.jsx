@@ -2,6 +2,8 @@
 import React, { useState } from "react"
 import { Wallet } from "ethers"
 
+import { useSigner } from '../context/SignerContext'
+
 export default function V3SignerSetup({ onSignerReady }) {
   const [existingPassword, setExistingPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -11,6 +13,7 @@ export default function V3SignerSetup({ onSignerReady }) {
   const [generatedKeystore, setGeneratedKeystore] = useState(null)
   const [downloadConfirmed, setDownloadConfirmed] = useState(false)
   const [generatedPrivateKey, setGeneratedPrivateKey] = useState(null)
+  const { setSignerPrivateKey } = useSigner()
 
   const handleKeystoreUpload = async () => {
     if (!keystoreFile || !existingPassword) {
@@ -22,6 +25,7 @@ export default function V3SignerSetup({ onSignerReady }) {
       reader.onload = async () => {
         const json = JSON.parse(reader.result)
         const wallet = await Wallet.fromEncryptedJson(JSON.stringify(json), existingPassword)
+        setSignerPrivateKey(wallet.privateKey)
         onSignerReady(wallet.privateKey)
         setStatus("✅ Signer loaded from keystore.")
       }
@@ -132,7 +136,10 @@ export default function V3SignerSetup({ onSignerReady }) {
               I have downloaded my keystore
             </label>
             <button
-              onClick={() => onSignerReady(generatedPrivateKey)}
+              onClick={() => {
+                setSignerPrivateKey(generatedPrivateKey)
+                onSignerReady(generatedPrivateKey)
+              }}
               disabled={!downloadConfirmed}
               style={{ padding: "10px 20px", marginTop: "10px" }}
             >

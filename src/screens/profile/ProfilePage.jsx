@@ -1,7 +1,7 @@
-// === ProfilePage.jsx ===
+// === screens/profile/ProfilePage.jsx ===
 import React, { useState } from 'react'
-import { uploadFileToSwarm, uploadTextToSwarm } from '../utils/BeeUtils'
-import { createProfileJson, uploadProfileJson } from '../utils/ProfileUtils'
+import { uploadFileToSwarm, uploadTextToSwarm } from '../../utils/BeeUtils'
+import { uploadProfileJson } from '../../utils/ProfileUtils'
 import { useNavigate } from 'react-router-dom'
 
 export default function ProfilePage({ beeApiUrl, selectedBatch }) {
@@ -27,15 +27,22 @@ export default function ProfilePage({ beeApiUrl, selectedBatch }) {
       setStatus('⏳ Uploading profile picture...')
       const profilePicHash = await uploadFileToSwarm(beeApiUrl, selectedBatch, profilePic)
 
-      setStatus('⏳ Uploading mood text...')
-      const moodHash = await uploadTextToSwarm(beeApiUrl, selectedBatch, mood)
+      setStatus('⏳ Uploading bio...')
+      const profileHash = await uploadTextToSwarm(beeApiUrl, selectedBatch, JSON.stringify({ bio: bio }), 'bio.json')
 
-      setStatus('⏳ Uploading profile JSON...')
-      const parentProfileHash = await uploadProfileJson(beeApiUrl, selectedBatch, profilePicHash, bio, moodHash)
+      setStatus('⏳ Uploading mood...')
+      const moodHash = await uploadTextToSwarm(beeApiUrl, selectedBatch, mood, 'mood.txt')
+
+      setStatus('⏳ Uploading parent profile JSON...')
+      const parentProfileHash = await uploadProfileJson(beeApiUrl, selectedBatch, profilePicHash, profileHash, moodHash)
+
+     // ✅ Feed update happens here
+     await updateProfileFeed(beeApiUrl, selectedBatch, signerPrivateKey, parentProfileHash)
 
       setStatus(`✅ Profile created successfully. Swarm Hash: ${parentProfileHash}`)
 
-      // Navigate or update feed here in the next step
+      // ✅ Optionally navigate to another screen or update feed in the next step
+      // navigate('/profile-view')
 
     } catch (error) {
       console.error('Profile upload error:', error)
