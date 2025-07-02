@@ -22,7 +22,6 @@ export default function V3SignerSetup({ onSignerReady }) {
       reader.onload = async () => {
         const json = JSON.parse(reader.result)
         const wallet = await Wallet.fromEncryptedJson(JSON.stringify(json), existingPassword)
-        setSignerPrivateKey(wallet.privateKey)
         onSignerReady(wallet.privateKey)
         setStatus("✅ Signer loaded from keystore.")
       }
@@ -133,10 +132,7 @@ export default function V3SignerSetup({ onSignerReady }) {
               I have downloaded my keystore
             </label>
             <button
-              onClick={() => {
-                setSignerPrivateKey(generatedPrivateKey)
-                onSignerReady(generatedPrivateKey)
-              }}
+              onClick={() => onSignerReady(generatedPrivateKey)}
               disabled={!downloadConfirmed}
               style={{ padding: "10px 20px", marginTop: "10px" }}
             >

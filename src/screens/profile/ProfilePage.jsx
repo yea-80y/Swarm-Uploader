@@ -5,6 +5,7 @@ import { updateElementFeed } from '../../utils/FeedManager'
 import { useNavigate } from 'react-router-dom'
 import { calculateCapacity, fetchBatchTTL, formatTTL, EFFECTIVE_VOLUME_MEDIUM_MB } from '../../utils/BeeConnection'
 import { useLocation } from 'react-router-dom'
+import { updateProfilePicture, updateBio, updateMood } from '../../utils/ProfileUtils'
 
 
 export default function ProfilePage({ signer, userAddress }) {
@@ -53,40 +54,31 @@ export default function ProfilePage({ signer, userAddress }) {
 
   const handleSaveProfile = async () => {
     if (!selectedBatch) {
-      setStatus('❌ Please select a valid batch first.')
-      return
+        setStatus('❌ Please select a valid batch first.')
+        return
     }
 
     if (!profilePic || bio.trim() === '' || mood.trim() === '') {
-      setStatus('❌ Please complete all fields.')
-      return
+        setStatus('❌ Please complete all fields.')
+        return
     }
 
     try {
-      setStatus('⏳ Uploading profile picture...')
-      const profilePicHash = await uploadFileToSwarm(beeApiUrl, selectedBatch, profilePic)
+        setStatus('⏳ Uploading profile picture...')
+        await updateProfilePicture(beeApiUrl, selectedBatch, signer, userAddress, profilePic)
 
-      setStatus('⏳ Uploading bio...')
-      const profileHash = await uploadTextToSwarm(beeApiUrl, selectedBatch, bio, 'bio.txt')
+        setStatus('⏳ Uploading bio...')
+        await updateBio(beeApiUrl, selectedBatch, signer, userAddress, bio)
 
-      setStatus('⏳ Uploading mood...')
-      const moodHash = await uploadTextToSwarm(beeApiUrl, selectedBatch, mood, 'mood.txt')
+        setStatus('⏳ Uploading mood...')
+        await updateMood(beeApiUrl, selectedBatch, signer, userAddress, mood)
 
-      // ✅ Update individual feeds
-      await updateElementFeed(beeApiUrl, selectedBatch, signer, 'profilePic', profilePicHash)
-      await updateElementFeed(beeApiUrl, selectedBatch, signer, 'bio', profileHash)
-      await updateElementFeed(beeApiUrl, selectedBatch, signer, 'mood', moodHash)
-
-      setStatus('✅ Profile created successfully.')
-
-      // Optionally navigate somewhere else
-      // navigate('/profile')
-
+        setStatus('✅ Profile created successfully.')
     } catch (error) {
-      console.error('Profile upload error:', error)
-      setStatus('❌ Profile upload failed.')
+        console.error('Profile upload error:', error)
+        setStatus('❌ Profile upload failed.')
     }
-  }
+    }
 
   return (
     <div className="p-4">
