@@ -2,8 +2,6 @@
 import React, { useState } from "react"
 import { Wallet } from "ethers"
 
-import { useSigner } from '../context/SignerContext.jsx'
-
 export default function V3SignerSetup({ onSignerReady }) {
   const [existingPassword, setExistingPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -13,7 +11,6 @@ export default function V3SignerSetup({ onSignerReady }) {
   const [generatedKeystore, setGeneratedKeystore] = useState(null)
   const [downloadConfirmed, setDownloadConfirmed] = useState(false)
   const [generatedPrivateKey, setGeneratedPrivateKey] = useState(null)
-  const { setSignerPrivateKey } = useSigner()
 
   const handleKeystoreUpload = async () => {
     if (!keystoreFile || !existingPassword) {

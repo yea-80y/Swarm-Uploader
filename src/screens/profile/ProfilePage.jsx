@@ -1,16 +1,55 @@
 // === screens/profile/ProfilePage.jsx ===
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { uploadFileToSwarm, uploadTextToSwarm } from '../../utils/BeeUtils'
-import { uploadProfileJson } from '../../utils/ProfileUtils'
+import { updateElementFeed } from '../../utils/FeedManager'
 import { useNavigate } from 'react-router-dom'
+import { calculateCapacity, fetchBatchTTL, formatTTL, EFFECTIVE_VOLUME_MEDIUM_MB } from '../../utils/BeeConnection'
+import { useLocation } from 'react-router-dom'
 
-export default function ProfilePage({ beeApiUrl, selectedBatch }) {
+
+export default function ProfilePage({ signer, userAddress }) {
   const [profilePic, setProfilePic] = useState(null)
   const [bio, setBio] = useState('')
   const [mood, setMood] = useState('')
   const [status, setStatus] = useState('')
+  const [selectedBatch, setSelectedBatch] = useState('')
+  const [batches, setBatches] = useState([])
 
   const navigate = useNavigate()
+
+  const location = useLocation()
+  const beeApiUrl = location.state?.beeApiUrl || "http://bee.swarm.public.dappnode:1633"
+
+  console.log('✅ Bee API URL:', beeApiUrl)
+
+  // ✅ Fetch Batches Directly (copied from UploadScreen)
+  useEffect(() => {
+    const fetchBatches = async () => {
+      try {
+        const response = await fetch(`${beeApiUrl}/stamps`)
+        const data = await response.json()
+
+        const usableBatches = await Promise.all(
+          data.stamps.filter(batch => batch.usable).map(async (batch) => {
+            const ttl = await fetchBatchTTL(beeApiUrl, batch.batchID)
+            return {
+              ...batch,
+              capacity: calculateCapacity(batch.depth),
+              capacityMB: EFFECTIVE_VOLUME_MEDIUM_MB[batch.depth] || 0,
+              ttl: ttl
+            }
+          })
+        )
+
+        setBatches(usableBatches)
+      } catch (err) {
+        console.error('❌ Error fetching batches:', err)
+        setStatus('❌ Failed to fetch live batch data.')
+      }
+    }
+
+    fetchBatches()
+  }, [beeApiUrl])
 
   const handleSaveProfile = async () => {
     if (!selectedBatch) {
@@ -28,21 +67,20 @@ export default function ProfilePage({ beeApiUrl, selectedBatch }) {
       const profilePicHash = await uploadFileToSwarm(beeApiUrl, selectedBatch, profilePic)
 
       setStatus('⏳ Uploading bio...')
-      const profileHash = await uploadTextToSwarm(beeApiUrl, selectedBatch, JSON.stringify({ bio: bio }), 'bio.json')
+      const profileHash = await uploadTextToSwarm(beeApiUrl, selectedBatch, bio, 'bio.txt')
 
       setStatus('⏳ Uploading mood...')
       const moodHash = await uploadTextToSwarm(beeApiUrl, selectedBatch, mood, 'mood.txt')
 
-      setStatus('⏳ Uploading parent profile JSON...')
-      const parentProfileHash = await uploadProfileJson(beeApiUrl, selectedBatch, profilePicHash, profileHash, moodHash)
+      // ✅ Update individual feeds
+      await updateElementFeed(beeApiUrl, selectedBatch, signer, 'profilePic', profilePicHash)
+      await updateElementFeed(beeApiUrl, selectedBatch, signer, 'bio', profileHash)
+      await updateElementFeed(beeApiUrl, selectedBatch, signer, 'mood', moodHash)
 
-     // ✅ Feed update happens here
-     await updateProfileFeed(beeApiUrl, selectedBatch, signerPrivateKey, parentProfileHash)
+      setStatus('✅ Profile created successfully.')
 
-      setStatus(`✅ Profile created successfully. Swarm Hash: ${parentProfileHash}`)
-
-      // ✅ Optionally navigate to another screen or update feed in the next step
-      // navigate('/profile-view')
+      // Optionally navigate somewhere else
+      // navigate('/profile')
 
     } catch (error) {
       console.error('Profile upload error:', error)
@@ -53,6 +91,28 @@ export default function ProfilePage({ beeApiUrl, selectedBatch }) {
   return (
     <div className="p-4">
       <h1 className="text-xl mb-4">Create Your Profile</h1>
+
+      {/* Batch Selector */}
+      <div className="mb-4">
+        <label>Select Batch:</label>
+        {batches.length === 0 ? (
+          <p>No available batches. Please buy a batch first.</p>
+        ) : (
+          batches.map((batch) => (
+            <div
+              key={batch.batchID}
+              className={`batch-card ${selectedBatch === batch.batchID ? 'selected' : ''}`}
+              onClick={() => setSelectedBatch(batch.batchID)}
+            >
+              <strong>{batch.label || '(No Label)'}</strong><br />
+              ID: {batch.batchID}<br />
+              Type: {batch.immutableFlag ? 'Immutable' : 'Mutable'}<br />
+              Capacity: {batch.capacity !== 'Unknown' ? batch.capacity : 'Calculating...'}<br />
+              TTL: {batch.ttl !== 'Unknown' ? formatTTL(batch.ttl) : 'Calculating...'}
+            </div>
+          ))
+        )}
+      </div>
 
       <div className="mb-4">
         <label>Profile Picture:</label>

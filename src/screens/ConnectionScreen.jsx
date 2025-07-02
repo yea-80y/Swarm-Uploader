@@ -126,6 +126,7 @@ export default function ConnectionScreen() {
           <button onClick={proceedToUpload} className="btn btn-primary">Proceed to Upload</button>
           <button onClick={proceedToBuyBatch} className="btn btn-secondary">Buy New Batch</button>
           <button onClick={() => navigate("/create-feed", { state: { beeApiUrl } })} className="btn btn-secondary">Create Feed</button>
+          <button onClick={() => navigate("/create-profile", { state: { beeApiUrl } })} className="btn btn-secondary">Create Profile</button>
         </div>
       </div>
     </div>

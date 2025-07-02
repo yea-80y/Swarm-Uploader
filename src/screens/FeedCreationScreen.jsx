@@ -5,6 +5,7 @@ import { Wallet } from "ethers" // ✅ Correct Ethers v6 import
 import { useNavigate } from "react-router-dom"
 import Header from "../components/Header"
 import ThemeToggle from "../components/ThemeToggle"
+import { useLocation } from "react-router-dom"
 import "../styles.css"
 
 // ✅ Helper to drop '0x' from feed hash
@@ -12,7 +13,7 @@ function removeHexPrefix(hash) {
   return hash.startsWith('0x') ? hash.slice(2) : hash
 }
 
-export default function FeedCreationScreen({ signer, beeApiUrl, onReset, swarmHash }) {
+export default function FeedCreationScreen({ signer, onReset, swarmHash }) {
   // ✅ State variables for managing feed setup and update flow
   const [feedName, setFeedName] = useState("")
   const [owner, setOwner] = useState("") // Ethereum address from Bee node
@@ -24,6 +25,9 @@ export default function FeedCreationScreen({ signer, beeApiUrl, onReset, swarmHa
   const [feedCreated, setFeedCreated] = useState(false)
 
   const navigate = useNavigate()
+
+  const location = useLocation()
+  const beeApiUrl = location.state?.beeApiUrl || "http://bee.swarm.public.dappnode:1633"
 
   // ✅ Called when user clicks "Generate Feed"
   const createFeed = async () => {
