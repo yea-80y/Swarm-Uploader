@@ -5,7 +5,7 @@ import { Wallet } from "ethers" // ✅ Correct Ethers v6 import
 import { useNavigate } from "react-router-dom"
 import Header from "../components/Header"
 import ThemeToggle from "../components/ThemeToggle"
-import "./styles.css"
+import "../styles.css"
 
 // ✅ Helper to drop '0x' from feed hash
 function removeHexPrefix(hash) {

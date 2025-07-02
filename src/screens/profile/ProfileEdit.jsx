@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { updateProfilePicture, updateBio, updateMood } from '../../utils/ProfileUtils'
-import { useSigner } from '../../context/SignerContext'
+import { useSigner } from '../../context/SignerContext.jsx'
 import { useNavigate } from 'react-router-dom'
 
 export default function ProfileEditScreen({ beeApiUrl, selectedBatch, userAddress }) {

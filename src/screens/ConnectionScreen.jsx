@@ -3,8 +3,8 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchWalletBalance, fetchPostageBatches } from "../utils/BeeConnection";
 import Header from "../components/Header"; // ✅ Import Header
-import "./styles.css";
-import ThemeToggle from "./ThemeToggle"; // ✅ Import Toggle
+import "../styles.css";
+import ThemeToggle from "../components/ThemeToggle"; // ✅ Import Toggle
 
 export default function ConnectionScreen() {
   const [beeApiUrl, setBeeApiUrl] = useState("http://bee.swarm.public.dappnode:1633");

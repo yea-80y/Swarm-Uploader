@@ -2,7 +2,7 @@
 import React, { useState } from "react"
 import { Wallet } from "ethers"
 
-import { useSigner } from '../context/SignerContext'
+import { useSigner } from '../context/SignerContext.jsx'
 
 export default function V3SignerSetup({ onSignerReady }) {
   const [existingPassword, setExistingPassword] = useState("")

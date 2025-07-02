@@ -1,7 +1,7 @@
 // DilutionPopup.jsx — FINAL VERSION (Accurate TTL + PLUR Per Chunk + Comments)
 
 import React, { useState, useEffect } from "react";
-import "./styles.css";
+import "../styles.css";
 import {
   BLOCK_TIME_S,
   calculateCapacity,

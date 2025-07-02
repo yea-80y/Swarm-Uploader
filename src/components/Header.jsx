@@ -1,7 +1,7 @@
 // Header.jsx - Perfectly Centered Top Logo (No Overlap)
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import "./styles.css";
+import "../styles.css";
 
 export default function Header() {
   const navigate = useNavigate();

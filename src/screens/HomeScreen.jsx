@@ -1,8 +1,8 @@
 // HomeScreen.jsx - Clean and Centered Layout (Perfectly Balanced)
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import "./styles.css";
-import ThemeToggle from "./ThemeToggle"; // ✅ Import Toggle
+import "../styles.css";
+import ThemeToggle from "../components/ThemeToggle"; // ✅ Import Toggle
 
 export default function HomeScreen() {
   const navigate = useNavigate();

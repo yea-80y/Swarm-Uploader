@@ -1,5 +1,5 @@
 // BeeConnection.jsx (Finalized - Direct API for TTL and Batch Data)
-import './styles.css';
+import '../styles.css';
 import { Bee } from '@ethersphere/bee-js';
 
 

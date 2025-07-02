@@ -3,11 +3,11 @@ import React, { useState, useCallback, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Bee } from "@ethersphere/bee-js";
 import { keccak256 } from "js-sha3";
-import "./styles.css";
+import "../styles.css";
 import { calculateCapacity, fetchBatchTTL, formatTTL, EFFECTIVE_VOLUME_MEDIUM_MB } from "../utils/BeeConnection";
-import DilutionPopup from "./DilutionPopup";
+import DilutionPopup from "../components/DilutionPopup";
 import Header from "../components/Header"; // ✅ Import Header
-import ThemeToggle from "./ThemeToggle"; // ✅ Import Toggle
+import ThemeToggle from "../components/ThemeToggle"; // ✅ Import Toggle
 
 // ✅ Function to Play Bee Sound
 const playBeeSound = () => {
