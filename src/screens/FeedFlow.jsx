@@ -15,6 +15,7 @@ export default function FeedFlow({ beeApiUrl, userAddress, profileMode = false }
       ) : profileMode ? (
         <ProfilePage
           signer={signer}
+          onReset={() => setSigner(null)} 
           userAddress={userAddress}
         />
       ) : (

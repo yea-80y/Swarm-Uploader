@@ -1,54 +1,117 @@
 // === utils/ProfileUtils.js ===
 
-import { uploadFileToSwarm, uploadTextToSwarm } from './BeeUtils'
+import { Bee, Topic } from '@ethersphere/bee-js'
+import { Wallet } from 'ethers'
 import { updateElementFeed } from './FeedManager'
 
-// ✅ Updates profile picture feed directly
-export async function updateProfilePicture(beeApiUrl, batchId, signer, userAddress, newFile) {
-  try {
-    const newPicHash = await uploadFileToSwarm(beeApiUrl, batchId, newFile)
+// ✅ Ensure batch ID is correctly formatted
+function formatBatchId(batchId) {
+  return batchId.startsWith('0x') ? batchId : '0x' + batchId
+}
 
-    // ✅ Directly update the 'profile-picture' feed
+// ✅ Retrieve signer public address
+async function getSignerAddress(signer) {
+  const wallet = new Wallet(signer)
+  return await wallet.getAddress()
+}
+
+// ✅ Create Feed Manifest
+async function createFeedIfNotExists(beeApiUrl, batchId, feedName, signer) {
+  const bee = new Bee(beeApiUrl)
+  const topic = Topic.fromString(feedName)
+  const batchIdHex = batchId.startsWith('0x') ? batchId : '0x' + batchId
+  const signerWallet = new Wallet(signer)
+  const signerAddress = await signerWallet.getAddress()
+
+  console.log(`✅ Creating feed manifest for: ${feedName}`)
+  const manifestResponse = await bee.createFeedManifest(batchIdHex, topic, signerAddress)
+  console.log("📦 manifestResponse:", manifestResponse)
+  console.log("📦 reference:", manifestResponse.reference)
+
+  const feedHash = manifestResponse.toHex()
+  console.log(`✅ Feed hash (Swarm hash): ${feedHash}`)
+
+  // ✅ Try to fetch the current content of the feed (like your working flow)
+  try {
+    const reader = bee.makeFeedReader(topic, signerAddress)
+    const current = await reader.downloadData()
+    console.log(`✅ Current content of ${feedName}: ${current}`)
+  } catch {
+    console.log(`ℹ️ No current content for ${feedName}`)
+  }
+
+  return feedHash
+}
+
+// ✅ Upload File to Swarm
+async function uploadFileToSwarm(beeApiUrl, batchId, file) {
+  const bee = new Bee(beeApiUrl)
+  const batchIdHex = formatBatchId(batchId)
+
+  console.log('✅ Uploading file to Swarm...')
+
+  const result = await bee.uploadFile(batchIdHex, file)
+  console.log('✅ File uploaded to Swarm. Swarm hash:', result.reference.toString())
+
+  return result.reference.toString()
+}
+
+// ✅ Upload Text to Swarm
+async function uploadTextToSwarm(beeApiUrl, batchId, text) {
+  const bee = new Bee(beeApiUrl)
+  const batchIdHex = formatBatchId(batchId)
+
+  console.log('✅ Uploading text to Swarm...')
+
+  const result = await bee.uploadData(batchIdHex, new TextEncoder().encode(text))
+  console.log('✅ Text uploaded to Swarm. Swarm hash:', result.reference.toString())
+
+  return result.reference.toString()
+}
+
+// ✅ Profile Element Uploads
+
+export async function updateProfilePicture(beeApiUrl, batchId, signer, newFile) {
+  try {
+    const feedHash = await createFeedIfNotExists(beeApiUrl, batchId, 'profile-picture', signer)
+
+    const newPicHash = await uploadFileToSwarm(beeApiUrl, batchId, newFile)
     await updateElementFeed(beeApiUrl, batchId, signer, 'profile-picture', newPicHash)
 
     console.log('✅ Profile picture updated successfully.')
-    return newPicHash
+    return { feedHash, newPicHash }
   } catch (error) {
-    console.error('❌ Profile picture update failed:', error)
+    console.error('❌ Error updating profile picture:', error)
     throw error
   }
 }
 
-// ✅ Updates bio feed directly
-export async function updateBio(beeApiUrl, batchId, signer, userAddress, newBioText) {
+export async function updateBio(beeApiUrl, batchId, signer, bioText) {
   try {
-    const bioJson = JSON.stringify({ bio: newBioText })
-    const newBioHash = await uploadTextToSwarm(beeApiUrl, batchId, bioJson, 'bio.json')
+    const feedHash = await createFeedIfNotExists(beeApiUrl, batchId, 'profile-bio', signer)
 
-    // ✅ Directly update the 'profile-bio' feed
+    const newBioHash = await uploadTextToSwarm(beeApiUrl, batchId, bioText)
     await updateElementFeed(beeApiUrl, batchId, signer, 'profile-bio', newBioHash)
 
     console.log('✅ Bio updated successfully.')
-    return newBioHash
+    return { feedHash, newBioHash }
   } catch (error) {
-    console.error('❌ Bio update failed:', error)
+    console.error('❌ Error updating bio:', error)
     throw error
   }
 }
 
-// ✅ Updates mood feed directly
-export async function updateMood(beeApiUrl, batchId, signer, userAddress, newMoodText) {
+export async function updateMood(beeApiUrl, batchId, signer, moodText) {
   try {
-    const moodJson = JSON.stringify({ mood: newMoodText })
-    const newMoodHash = await uploadTextToSwarm(beeApiUrl, batchId, moodJson, 'mood.json')
+    const feedHash = await createFeedIfNotExists(beeApiUrl, batchId, 'profile-mood', signer)
 
-    // ✅ Directly update the 'profile-mood' feed
+    const newMoodHash = await uploadTextToSwarm(beeApiUrl, batchId, moodText)
     await updateElementFeed(beeApiUrl, batchId, signer, 'profile-mood', newMoodHash)
 
     console.log('✅ Mood updated successfully.')
-    return newMoodHash
+    return { feedHash, newMoodHash }
   } catch (error) {
-    console.error('❌ Mood update failed:', error)
+    console.error('❌ Error updating mood:', error)
     throw error
   }
 }
