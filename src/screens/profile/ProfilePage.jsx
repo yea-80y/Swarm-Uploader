@@ -79,6 +79,12 @@ export default function ProfilePage({ signer, onReset }) {
       setStatus('✅ Profile created successfully.')
       setProfileCreated(true)
 
+      const profileFeedHashes = {
+        picture: picResult.feedHash,
+        bio: bioResult.feedHash,
+        mood: moodResult.feedHash,
+        }
+
       // ✅ Log the real feed manifest hashes
       console.log('✅ Feed Manifest Hashes:')
       console.log('Profile Picture Feed Hash:', picResult.feedHash)
@@ -153,7 +159,7 @@ export default function ProfilePage({ signer, onReset }) {
       {/* View Profile Button */}
       {profileCreated && (
         <button
-          onClick={() => navigate('/profile', { state: { beeApiUrl, signer } })}
+          onClick={() => navigate('/profile-view', { state: { beeApiUrl, signer, feedHashes: profileFeedHashes } })}
           className="bg-green-500 text-white px-4 py-2 rounded mt-4"
         >
           View Profile

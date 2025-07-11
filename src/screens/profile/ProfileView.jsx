@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { fetchElementFeed, getFeedHash } from '../../utils/FeedManager'
+import { fetchElementFeed } from '../../utils/FeedManager'
 import { Bee } from '@ethersphere/bee-js'
 import { Wallet } from 'ethers'
 
 export default function ProfileViewScreen() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { beeApiUrl, signer } = location.state
+  const { beeApiUrl, signer, feedHashes } = location.state
 
   const [profilePicUrl, setProfilePicUrl] = useState('')
   const [bio, setBio] = useState('')
@@ -21,20 +21,23 @@ export default function ProfileViewScreen() {
       try {
         const bee = new Bee(beeApiUrl)
 
-        // ✅ Derive signer address
+        // ✅ Derive signer address (for reference if needed)
         const wallet = new Wallet(signer)
         const signerAddress = await wallet.getAddress()
 
+        // ✅ Display the real feed hashes passed from ProfilePage
+        console.log('✅ Profile Picture Feed Hash:', feedHashes.picture)
+        console.log('✅ Bio Feed Hash:', feedHashes.bio)
+        console.log('✅ Mood Feed Hash:', feedHashes.mood)
+
         // ✅ Fetch Profile Picture
         const picHash = await fetchElementFeed(beeApiUrl, signer, 'profile-picture')
-        console.log('✅ Profile Picture Feed Hash:', getFeedHash(signerAddress, 'profile-picture'))
         if (picHash) {
           setProfilePicUrl(`${beeApiUrl}/bzz/${picHash}`)
         }
 
         // ✅ Fetch Bio
         const bioHash = await fetchElementFeed(beeApiUrl, signer, 'profile-bio')
-        console.log('✅ Bio Feed Hash:', getFeedHash(signerAddress, 'profile-bio'))
         if (bioHash) {
           const bioResponse = await bee.downloadData(bioHash)
           const bioText = new TextDecoder().decode(bioResponse)
@@ -43,7 +46,6 @@ export default function ProfileViewScreen() {
 
         // ✅ Fetch Mood
         const moodHash = await fetchElementFeed(beeApiUrl, signer, 'profile-mood')
-        console.log('✅ Mood Feed Hash:', getFeedHash(signerAddress, 'profile-mood'))
         if (moodHash) {
           const moodResponse = await bee.downloadData(moodHash)
           const moodText = new TextDecoder().decode(moodResponse)
@@ -58,7 +60,7 @@ export default function ProfileViewScreen() {
     }
 
     loadProfile()
-  }, [beeApiUrl, signer])
+  }, [beeApiUrl, signer, feedHashes])
 
   return (
     <div className="p-4">
@@ -81,6 +83,14 @@ export default function ProfileViewScreen() {
       <div className="mb-4">
         <h2 className="font-bold">Mood:</h2>
         <p>{mood}</p>
+      </div>
+
+      {/* ✅ Display Feed Hashes */}
+      <div className="mb-4">
+        <h2 className="font-bold">Feed Hashes:</h2>
+        <p>Profile Picture Feed Hash: {feedHashes.picture}</p>
+        <p>Bio Feed Hash: {feedHashes.bio}</p>
+        <p>Mood Feed Hash: {feedHashes.mood}</p>
       </div>
 
       {/* ✅ Edit Profile Button */}
