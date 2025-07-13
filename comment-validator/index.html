@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Comment Validator Test</title>
+</head>
+<body>
+  <h2>WASM Comment Validator</h2>
+  <textarea id="commentInput" rows="6" cols="60">
+{
+  "author": "0x1234",
+  "content": "This is my comment.",
+  "timestamp": 1720803200
+}
+  </textarea>
+  <br>
+  <button id="validateBtn">Validate</button>
+  <p id="result"></p>
+
+  <script type="module">
+    import init, { validate_comment } from './pkg/comment_validator.js';
+
+    async function runValidation() {
+      await init();
+      const input = document.getElementById('commentInput').value;
+      const result = validate_comment(input);
+      document.getElementById('result').innerText = result
+        ? "✅ Valid comment"
+        : "❌ Invalid comment";
+    }
+
+    // Attach the event listener properly
+    document.getElementById("validateBtn").addEventListener("click", runValidation);
+  </script>
+</body>
+</html>

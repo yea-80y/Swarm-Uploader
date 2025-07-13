@@ -19,37 +19,42 @@ export default function ProfileViewScreen() {
   useEffect(() => {
     const loadProfile = async () => {
       try {
+        setStatus('⏳ Loading profile...')
+
         const bee = new Bee(beeApiUrl)
 
         // ✅ Derive signer address (for reference if needed)
         const wallet = new Wallet(signer)
         const signerAddress = await wallet.getAddress()
 
-        // ✅ Display the real feed hashes passed from ProfilePage
-        console.log('✅ Profile Picture Feed Hash:', feedHashes.picture)
-        console.log('✅ Bio Feed Hash:', feedHashes.bio)
-        console.log('✅ Mood Feed Hash:', feedHashes.mood)
+        // ✅ Support both flows: use passed-in hashes or fetch from feed if not provided
+        const pictureHash = feedHashes?.picture || await fetchElementFeed(beeApiUrl, signer, 'profile-picture')
+        const bioHash = feedHashes?.bio || await fetchElementFeed(beeApiUrl, signer, 'profile-bio')
+        const moodHash = feedHashes?.mood || await fetchElementFeed(beeApiUrl, signer, 'profile-mood')
 
-        // ✅ Fetch Profile Picture
-        const picHash = await fetchElementFeed(beeApiUrl, signer, 'profile-picture')
-        if (picHash) {
-          setProfilePicUrl(`${beeApiUrl}/bzz/${picHash}`)
+        // ✅ Log resolved feed hashes (whether passed or fetched)
+        console.log('✅ Resolved Feed Manifest Hashes:')
+        console.log('Profile Picture Feed Hash:', pictureHash)
+        console.log('Bio Feed Hash:', bioHash)
+        console.log('Mood Feed Hash:', moodHash)
+
+        // ✅ Load and set profile picture
+        if (pictureHash) {
+          setProfilePicUrl(`${beeApiUrl}/bzz/${pictureHash}`)
         }
 
-        // ✅ Fetch Bio
-        const bioHash = await fetchElementFeed(beeApiUrl, signer, 'profile-bio')
+        // ✅ Load and set bio
         if (bioHash) {
-          const bioResponse = await bee.downloadData(bioHash)
-          const bioText = new TextDecoder().decode(bioResponse)
-          setBio(bioText)
+          const response = await fetch(`${beeApiUrl}/bzz/${bioHash}`)
+          const text = await response.text()
+          setBio(text)
         }
 
-        // ✅ Fetch Mood
-        const moodHash = await fetchElementFeed(beeApiUrl, signer, 'profile-mood')
+        // ✅ Load and set mood
         if (moodHash) {
-          const moodResponse = await bee.downloadData(moodHash)
-          const moodText = new TextDecoder().decode(moodResponse)
-          setMood(moodText)
+          const response = await fetch(`${beeApiUrl}/bzz/${moodHash}`)
+          const text = await response.text()
+          setMood(text)
         }
 
         setStatus('✅ Profile loaded successfully.')
@@ -69,7 +74,7 @@ export default function ProfileViewScreen() {
       {/* ✅ Profile Picture */}
       {profilePicUrl && (
         <div className="mb-4">
-          <img src={profilePicUrl} alt="Profile" className="w-32 h-32 rounded-full object-cover" />
+          <img src={profilePicUrl} alt="Profile" className="mx-auto rounded-full object-cover border shadow" style={{ width: '160px', height: '160px', maxWidth: '100%', maxHeight: '160px' }} />
         </div>
       )}
 

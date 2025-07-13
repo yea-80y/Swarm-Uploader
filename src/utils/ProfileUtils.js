@@ -57,16 +57,27 @@ async function uploadFileToSwarm(beeApiUrl, batchId, file) {
 }
 
 // ✅ Upload Text to Swarm
-async function uploadTextToSwarm(beeApiUrl, batchId, text) {
-  const bee = new Bee(beeApiUrl)
-  const batchIdHex = formatBatchId(batchId)
+export async function uploadTextToSwarm(text, batchId, beeApiUrl) {
+  try {
+    const blob = new Blob([text], { type: 'text/plain' });
+    const response = await fetch(`${beeApiUrl}/bzz`, {
+      method: 'POST',
+      headers: {
+        'Swarm-Postage-Batch-Id': batchId,
+      },
+      body: blob,
+    });
 
-  console.log('✅ Uploading text to Swarm...')
+    if (!response.ok) {
+      throw new Error(`Text upload failed: ${response.status} ${response.statusText}`);
+    }
 
-  const result = await bee.uploadData(batchIdHex, new TextEncoder().encode(text))
-  console.log('✅ Text uploaded to Swarm. Swarm hash:', result.reference.toString())
-
-  return result.reference.toString()
+    const data = await response.json();
+    return data.reference; // Swarm hash
+  } catch (error) {
+    console.error('Error uploading text to Swarm:', error);
+    throw error;
+  }
 }
 
 // ✅ Profile Element Uploads
@@ -90,7 +101,7 @@ export async function updateBio(beeApiUrl, batchId, signer, bioText) {
   try {
     const feedHash = await createFeedIfNotExists(beeApiUrl, batchId, 'profile-bio', signer)
 
-    const newBioHash = await uploadTextToSwarm(beeApiUrl, batchId, bioText)
+    const newBioHash = await uploadTextToSwarm(bioText, batchId, beeApiUrl)
     await updateElementFeed(beeApiUrl, batchId, signer, 'profile-bio', newBioHash)
 
     console.log('✅ Bio updated successfully.')
@@ -105,7 +116,7 @@ export async function updateMood(beeApiUrl, batchId, signer, moodText) {
   try {
     const feedHash = await createFeedIfNotExists(beeApiUrl, batchId, 'profile-mood', signer)
 
-    const newMoodHash = await uploadTextToSwarm(beeApiUrl, batchId, moodText)
+    const newMoodHash = await uploadTextToSwarm(moodText, batchId, beeApiUrl)
     await updateElementFeed(beeApiUrl, batchId, signer, 'profile-mood', newMoodHash)
 
     console.log('✅ Mood updated successfully.')

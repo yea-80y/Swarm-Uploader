@@ -43,7 +43,7 @@ function App() {
             <Route path="/create-feed" element={<FeedFlow beeApiUrl={beeApiUrl} selectedBatch={selectedBatch} userAddress={userAddress} />} />
             <Route path="/create-profile" element={<FeedFlow beeApiUrl={beeApiUrl} selectedBatch={selectedBatch} userAddress={userAddress} profileMode={true} />} />
             <Route path="/edit-profile" element={<ProfileEdit beeApiUrl={beeApiUrl} selectedBatch={selectedBatch} userAddress={userAddress} />} />
-            <Route path="/profile" element={<ProfileView beeApiUrl={beeApiUrl} userAddress={userAddress} />}
+            <Route path="/profile-view" element={<ProfileView beeApiUrl={beeApiUrl} userAddress={userAddress} />}
             />
           </Routes>
         </Router>

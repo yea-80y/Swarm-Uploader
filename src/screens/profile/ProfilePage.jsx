@@ -17,6 +17,7 @@ export default function ProfilePage({ signer, onReset }) {
   const [selectedBatch, setSelectedBatch] = useState('')
   const [batches, setBatches] = useState([])
   const [profileCreated, setProfileCreated] = useState(false)
+  const [profileFeedHashes, setProfileFeedHashes] = useState(null)
 
   // ✅ Navigation and Bee API setup
   const navigate = useNavigate()
@@ -79,11 +80,11 @@ export default function ProfilePage({ signer, onReset }) {
       setStatus('✅ Profile created successfully.')
       setProfileCreated(true)
 
-      const profileFeedHashes = {
+      setProfileFeedHashes({
         picture: picResult.feedHash,
         bio: bioResult.feedHash,
         mood: moodResult.feedHash,
-        }
+      })
 
       // ✅ Log the real feed manifest hashes
       console.log('✅ Feed Manifest Hashes:')
@@ -157,7 +158,7 @@ export default function ProfilePage({ signer, onReset }) {
       {status && <p className="mt-4">{status}</p>}
 
       {/* View Profile Button */}
-      {profileCreated && (
+      {profileCreated && profileFeedHashes && (
         <button
           onClick={() => navigate('/profile-view', { state: { beeApiUrl, signer, feedHashes: profileFeedHashes } })}
           className="bg-green-500 text-white px-4 py-2 rounded mt-4"

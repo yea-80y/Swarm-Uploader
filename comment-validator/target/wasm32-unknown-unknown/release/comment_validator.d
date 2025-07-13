@@ -1,0 +1,1 @@
+C:\Users\nabil\swarm_project\swarm-uploader-site\comment-validator\target\wasm32-unknown-unknown\release\comment_validator.wasm: C:\Users\nabil\swarm_project\swarm-uploader-site\comment-validator\src\lib.rs
