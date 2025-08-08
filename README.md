@@ -2,7 +2,7 @@
 
 A decentralized file and website uploader for the [Ethereum Swarm](https://docs.ethswarm.org/) network, built with React and Bee-js.
 
-This app was developed as a hands-on way to better understand Swarm's storage model, including postage stamps, feeds, and node interaction. It allows users to manage storage capacity, upload content, and experiment with decentralised identity — all from a simple UI.
+This app was developed as a hands-on way to better understand Swarm's storage model, including postage stamps, feeds, and node interaction. It allows users to manage storage capacity, upload content, and experiment with decentralised profiles/identity — all from a simple UI.
 
 ## 🚀 Features
 
@@ -84,7 +84,7 @@ We are now extending this into:
 - Automated ENS content hash updates  
 - CowSwap transaction signing via Bee node wallet  
 
-## 🙌 Built For and By the Community
+## 🙌 Built For the Community, by the Community
 
 > This project is part of a larger vision to make decentralized storage accessible, functional, and empowering for end users.  
 > From file uploads to forum threads, all content is truly **owned and served** by the user.
