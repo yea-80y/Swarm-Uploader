@@ -2,7 +2,7 @@
 
 A decentralized file and website uploader for the [Ethereum Swarm](https://docs.ethswarm.org/) network, built with React and Bee-js.
 
-This app was developed as a hands-on way to better understand Swarm's storage model, including postage stamps, feeds, and node interaction. It allows users to manage storage capacity, upload content, and experiment with decentralised identity—all from a simple UI.
+This app was developed as a hands-on way to better understand Swarm's storage model, including postage stamps, feeds, and node interaction. It allows users to manage storage capacity, upload content, and experiment with decentralised identity — all from a simple UI.
 
 ## 🚀 Features
 
@@ -44,6 +44,7 @@ npm install
 
 # Start the development server (Vite uses port 5173)
 npm run dev
+```
 
 Then open your browser at: [http://localhost:5173](http://localhost:5173)
 
@@ -91,3 +92,4 @@ We are now extending this into:
 ## 📄 License
 
 This project is licensed under the MIT License.
+
