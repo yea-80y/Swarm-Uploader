@@ -18,6 +18,8 @@
     "@pcd/pcd-collection": "^0.15.1",
     "@pcd/pcd-types": "^0.15.0",
     "@pcd/pod": "^0.5.1",
+    "@pcd/pod-email-pcd": "^0.1.1",
+    "@pcd/pod-email-pcd-ui": "^0.1.1",
     "@pcd/pod-pcd": "^0.5.1",
     "@pcd/pod-pcd-ui": "^0.5.1",
     "@pcd/pod-ticket-pcd": "^0.5.1",
