@@ -51,6 +51,9 @@ export default function UploadScreen() {
   const [fileSizeMB, setFileSizeMB] = useState(0); // ✅ Add this state for file size
   const [formattedFileSize, setFormattedFileSize] = useState(""); // ✅ New state
   const [feedName, setFeedName] = useState(""); // ✅ Add this back to avoid ReferenceError
+  // 🔐 Bee encryption toggle
+  const [encryptionMode, setEncryptionMode] = useState('bee'); // 'bee' | 'none'
+  const isBeeEncrypted = encryptionMode === 'bee';
 
   const bee = new Bee(beeApiUrl);
     
@@ -172,10 +175,16 @@ export default function UploadScreen() {
       let reference = "";
 
       if (uploadMode === "file") {
-        const result = await bee.uploadFile(selectedBatch, file);
+        const result = await bee.uploadFile(selectedBatch, file, file.name, {
+        contentType: file.type || 'application/octet-stream',
+        ...(isBeeEncrypted ? { encrypt: true } : {})
+      });
         reference = result.reference.toString();
       } else {
-        const result = await bee.uploadFiles(selectedBatch, file, { indexDocument: "index.html" });
+        const result = await bee.uploadFiles(selectedBatch, file, {
+        indexDocument: 'index.html',
+        ...(isBeeEncrypted ? { encrypt: true } : {})
+      });
         reference = result.reference.toString();
       }
 
@@ -228,6 +237,25 @@ export default function UploadScreen() {
           <option value="folder">Folder (Website)</option>
         </select>
 
+        {/* 🔐 Encrypt with Bee (user option) */}
+        <div style={{ margin: "12px 0" }}>
+          <label className="block text-sm font-medium mb-1">
+            <input
+              type="checkbox"
+              checked={isBeeEncrypted}
+              onChange={() =>
+                setEncryptionMode(prev => (prev === "bee" ? "none" : "bee"))
+              }
+              style={{ marginRight: 8 }}
+            />
+            Encrypt with Bee
+          </label>
+          <p className="text-xs text-gray-500">
+            When enabled, Bee stores your upload encrypted and returns a 64-byte (128-hex)
+            reference that already includes the decryption key. Keep it private.
+          </p>
+        </div>
+
         <label>Select File:</label>
         <input 
           type="file" 
@@ -275,6 +303,23 @@ export default function UploadScreen() {
               onClick={() => navigate("/create-feed", { state: { beeApiUrl, swarmHash } })}
             >
               Create / Add to Feed
+            </button>
+
+            <button
+              className="btn btn-secondary"
+              onClick={() =>
+                navigate("/pod-passport", {
+                  state: {
+                    beeApiUrl,           // reuse your current Bee API URL
+                    reference: swarmHash, // the hash returned by the upload
+                    // If you uploaded a folder/collection that contains the export JSON,
+                    // set this to the file path inside the collection. For single-file uploads, leave empty.
+                    collectionPath: uploadMode === "folder" ? "export.json" : ""
+                  }
+                })
+              }
+            >
+              View POD Passport
             </button>
           </>
         )}

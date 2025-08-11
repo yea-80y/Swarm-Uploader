@@ -1,4 +1,10 @@
-import React, { useState } from "react";
+// --- Node polyfills for browser ---
+import { Buffer } from "buffer";
+import process from "process";
+window.Buffer = Buffer;
+window.process = process;
+
+import React, { useState, lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { HashRouter as Router, Routes, Route } from "react-router-dom";
 
@@ -11,6 +17,8 @@ import FeedCreationScreen from './screens/FeedCreationScreen';
 import FeedFlow from './screens/FeedFlow';
 import ProfileView from './screens/profile/ProfileView';
 import ProfileEdit from './screens/profile/ProfileEdit';
+
+const PodPassportViewer = lazy(() => import("./screens/PODPassportViewer"));
 
 import { SignerProvider } from './context/SignerContext.jsx';
 import "./styles.css";
@@ -43,8 +51,8 @@ function App() {
             <Route path="/create-feed" element={<FeedFlow beeApiUrl={beeApiUrl} selectedBatch={selectedBatch} userAddress={userAddress} />} />
             <Route path="/create-profile" element={<FeedFlow beeApiUrl={beeApiUrl} selectedBatch={selectedBatch} userAddress={userAddress} profileMode={true} />} />
             <Route path="/edit-profile" element={<ProfileEdit beeApiUrl={beeApiUrl} selectedBatch={selectedBatch} userAddress={userAddress} />} />
-            <Route path="/profile-view" element={<ProfileView beeApiUrl={beeApiUrl} userAddress={userAddress} />}
-            />
+            <Route path="/profile-view" element={<ProfileView beeApiUrl={beeApiUrl} userAddress={userAddress} />} />
+            <Route path="/pod-passport" element={ <Suspense fallback={<div style={{ padding: 16 }}>Loading POD Passport…</div>}> <PodPassportViewer /> </Suspense> } />
           </Routes>
         </Router>
       </SignerProvider>
