@@ -148,107 +148,96 @@ export default function PodPassportViewer() {
     return list;
   }
 
-  /** Deserialize and render (step 3) with normalization + per-item per-package fallback. */
+    // Fix "Invalid datetime" in some pod-ticket-pcd exports: add "Z" if missing
+    function normalizePodTicketPCDJSONString(pcdStr) {
+    try {
+        const obj = JSON.parse(pcdStr);
+        const maybeDate = obj?.claim?.ticket?.eventStartDate;
+        if (typeof maybeDate === "string") {
+        // If it has no timezone info (no 'Z' and no +/− offset), append 'Z'
+        const hasTZ = /Z|[+\-]\d{2}:\d{2}$/.test(maybeDate);
+        if (!hasTZ) {
+            obj.claim.ticket.eventStartDate = `${maybeDate}Z`;
+        }
+        }
+        return JSON.stringify(obj);
+    } catch {
+        // If parse fails, just return the original string; per-type code will handle errors.
+        return pcdStr;
+    }
+    }
+
+
+  /** Deserialize and render (step 3) by calling each package directly. */
     async function renderPCDsFromText(text) {
     const serializedPCDs = parseZupassExport(text);
 
-    // 1) Normalize: convert each entry's `pcd` JSON string -> object
-    const normalized = [];
-    const dropped = [];
-    for (const s of serializedPCDs) {
-        const type = s?.type || "(missing type)";
-        const raw = s?.pcd;
-        if (typeof raw !== "string" || !raw.length) {
-        dropped.push({ type, reason: "pcd missing/not a string" });
-        continue;
-        }
-        try {
-        const obj = JSON.parse(raw); // make it an object for packages that expect objects
-        normalized.push({ ...s, pcd: obj });
-        } catch (e) {
-        dropped.push({ type, reason: `pcd parse failed: ${(e?.message || e).toString()}` });
-        }
-    }
-
-    if (!normalized.length) {
-        throw new Error(`Step 3 failed: every entry was invalid. Dropped ${dropped.length} item(s).`);
-    }
-
-    // Packages map for targeted per-type deserialization
-    const pkgByType = new Map([
-        ["pod-pcd", PODPCDPackage],
-        ["pod-ticket-pcd", PODTicketPCDPackage],
-        ["email-pcd", EmailPCDPackage],
-        ["eddsa-ticket-pcd", EdDSATicketPCDPackage],
-        ["semaphore-identity-pcd", SemaphoreIdentityPCDPackage],
-        ["pod-email-pcd", PODEmailPCDPackage]
-    ]);
-
-    // 2a) Try bulk with normalized objects first
-    try {
-        const collection = await PCDCollection.deserialize({
-        serializedPCDs: normalized,
-        pcdPackages: Array.from(pkgByType.values())
-        });
-        setPcds(collection.getAllPCDs());
-        setStep3OK(true);
-        if (dropped.length) setError(`Rendered ${normalized.length} item(s). Skipped ${dropped.length}.`);
-        return;
-    } catch (e) {
-        // fall through to per-item targeted deserialize
-    }
-
-    // 2b) Per-item targeted deserialize so one bad item doesn’t block the rest
     const ok = [];
     const bad = [];
 
-    for (let i = 0; i < normalized.length; i++) {
-        const one = normalized[i];
-        const type = one?.type;
-        const pkg = pkgByType.get(type);
+    // helper to ensure we always pass a string to the package
+    function asStr(x) {
+        return typeof x === "string" ? x : JSON.stringify(x);
+    }
 
-        if (!pkg) {
-        bad.push({ index: i, type, note: "no package registered for this type" });
-        continue;
+    for (let i = 0; i < serializedPCDs.length; i++) {
+        const s = serializedPCDs[i];
+        const type = s?.type || "(missing type)";
+        const pcdStr = asStr(s?.pcd);
+
+        try {
+        let pcd;
+        switch (type) {
+            case "pod-pcd":
+            pcd = await PODPCDPackage.deserialize(pcdStr);
+            break;
+            case "pod-ticket-pcd": {
+            const fixed = normalizePodTicketPCDJSONString(pcdStr);
+            pcd = await PODTicketPCDPackage.deserialize(fixed);
+            break;
+            }
+            case "pod-email-pcd":
+            pcd = await PODEmailPCDPackage.deserialize(pcdStr);
+            break;
+            case "email-pcd":
+            pcd = await EmailPCDPackage.deserialize(pcdStr);
+            break;
+            case "eddsa-ticket-pcd":
+            pcd = await EdDSATicketPCDPackage.deserialize(pcdStr);
+            break;
+            case "semaphore-identity-pcd":
+            pcd = await SemaphoreIdentityPCDPackage.deserialize(pcdStr);
+            break;
+            default:
+            bad.push({ index: i, type, note: "no package registered" });
+            continue;
         }
-
-        try {
-        // Each package supports deserializing one serialized PCD. Some expect `pcd` to be an object.
-        const col = await PCDCollection.deserialize({
-            serializedPCDs: [one],
-            pcdPackages: [pkg]
-        });
-        ok.push(...col.getAllPCDs());
+        ok.push(pcd);
         } catch (e) {
-        // Try again with stringified `pcd` (in case this package expects a string, not object)
-        try {
-            const fallbackOne = { ...one, pcd: JSON.stringify(one.pcd) };
-            const col2 = await PCDCollection.deserialize({
-            serializedPCDs: [fallbackOne],
-            pcdPackages: [pkg]
-            });
-            ok.push(...col2.getAllPCDs());
-        } catch (e2) {
-            bad.push({
+        // show which type failed and a short snippet of the exact string we tried to parse
+        bad.push({
             index: i,
             type,
-            note: (e2?.message || e2 || e)?.toString().slice(0, 160)
-            });
-        }
+            note: String(e?.message || e),
+            snippet: pcdStr.slice(0, 120)
+        });
         }
     }
 
     if (ok.length) {
         setPcds(ok);
         setStep3OK(true);
-        const skipped = dropped.length + bad.length;
+        if (bad.length) {
         setError(
-        `Rendered ${ok.length} item(s). Skipped ${skipped} invalid item(s).` +
-        (bad.length ? ` Examples: ${bad.slice(0, 3).map(b => `${b.type}`).join(", ")}...` : "")
+            `Rendered ${ok.length} item(s). Skipped ${bad.length}. ` +
+            `First skipped: type=${bad[0].type}, err=${bad[0].note}, pcd starts: ${bad[0].snippet}`
         );
+        }
     } else {
         throw new Error(
-        `Step 3 failed: couldn't deserialize any PCDs. Example error: ${bad[0]?.note || "(none)"}`
+        `Step 3 failed: none deserialized. ` +
+        `Example: type=${bad[0]?.type || "(unknown)"} err=${bad[0]?.note || "(none)"} ` +
+        `pcd starts: ${bad[0]?.snippet || ""}`
         );
     }
     }
@@ -276,27 +265,61 @@ export default function PodPassportViewer() {
   }
 
   /** Render a PCD via the correct UI component for its type. */
-  function PodCard({ pcd }) {
-    switch (pcd.type) {
-      case "pod-pcd":
-        return <PODPCDUI pcd={pcd} expanded />;
-      case "pod-ticket-pcd":
-        return <PODTicketPCDUI pcd={pcd} expanded />;
-      case "pod-email-pcd":
-        return <PODEmailPCDUI pcd={pcd} expanded />;
-      case "email-pcd":
-        return <EmailPCDUI pcd={pcd} expanded />;
-      case "eddsa-ticket-pcd":
-        return <EdDSATicketPCDUI pcd={pcd} expanded />;
-      case "semaphore-identity-pcd":
-        return <SemaphoreIdentityPCDUI pcd={pcd} expanded />;
-      default:
-        return <pre className="text-xs overflow-auto">{JSON.stringify(pcd, null, 2)}</pre>;
-    }
-  }
+    function PodCard({ pcd }) {
+    // Map PCD type -> its UI object
+    const uiByType = {
+        "pod-pcd": PODPCDUI,
+        "pod-ticket-pcd": PODTicketPCDUI,
+        "pod-email-pcd": PODEmailPCDUI, // if installed
+        "email-pcd": EmailPCDUI,
+        "eddsa-ticket-pcd": EdDSATicketPCDUI,
+        "semaphore-identity-pcd": SemaphoreIdentityPCDUI
+    };
 
+    const ui = uiByType[pcd.type];
+
+    // Zupass UI packages export PCDUI objects; use their render method
+    if (ui && typeof ui.renderCardBody === "function") {
+        return ui.renderCardBody({
+        pcd,
+        expanded: true,
+        setExpanded: () => {},
+        displayOptions: {}
+        });
+    }
+
+    // Fallback if we don't have a UI for this type
+    return (
+        <pre className="text-xs overflow-auto">
+        {JSON.stringify(pcd, null, 2)}
+        </pre>
+    );
+    }
+
+    // Host styles to make Zupass cards feel tighter
+    const hostStyles = `
+    .pcd-host {
+        font-size: 14px;
+        line-height: 1.35;
+    }
+    .pcd-host .rounded.border.p-3 {
+        max-width: 720px; /* similar to Zupass card width */
+        margin-inline: auto;
+    }
+    .pcd-host img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+    }
+    .pcd-host h1, .pcd-host h2, .pcd-host h3 {
+        line-height: 1.2;
+    }
+    `;
+
+    <style>{hostStyles}</style>
   return (
-    <div className="p-4 space-y-3">
+    
+    <div className="pcd-host p-4 space-y-3">
       <h2 className="text-lg font-semibold">POD Passport</h2>
 
       {/* Controls */}
