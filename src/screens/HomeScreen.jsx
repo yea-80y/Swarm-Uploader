@@ -29,6 +29,7 @@ export default function HomeScreen() {
       </div>
 
         <p className="description">
+        **🐛Known Bugs: Topup not working correctly - Fix known / Swarm codec error when sending content hash - PRs welcome!**<br></br><br></br>
         Easily upload and manage files on Ethereum Swarm, with automatic ENS content hash updates - connect 
         to your Bee node to get started. WoCo is continuously evolving, delivering exciting updates, and working to 
         build <br></br>the only app we'll ever need. <br></br><br></br>
